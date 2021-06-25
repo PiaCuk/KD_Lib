@@ -104,8 +104,11 @@ ENV/
 # IDE Files
 .vscode/
 
-# unnecessary data directories created by running mnist
+# unnecessary data directories created for datasets
 data
 mnist_data
 Experiments
 cifar_data
+
+# virtual environment
+kd_venv
