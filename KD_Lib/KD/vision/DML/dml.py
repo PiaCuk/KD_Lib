@@ -71,6 +71,7 @@ class DML:
         best_acc = 0.0
         self.best_student_model_weights = deepcopy(self.student_cohort[0].state_dict())
         self.best_student = self.student_cohort[0]
+        self.best_student_id = 0
         num_students = len(self.student_cohort)
 
         print("\nTraining students...")
@@ -79,6 +80,7 @@ class DML:
             epoch_loss = 0.0
             correct = 0
 
+            # TODO tqdm here to see progress in epoch?
             for (data, label) in self.train_loader:
 
                 data = data.to(self.device)
@@ -93,9 +95,15 @@ class DML:
                     for j in range(num_students):
                         if i == j:
                             continue
-                        student_loss += self.loss_fn(
-                            self.student_cohort[i](data), self.student_cohort[j](data)
-                        )
+                        if self.loss_fn is "KLDivLoss":
+                            student_loss += nn.KLDivLoss(
+                                torch.log_softmax(self.student_cohort[i](data), dim=-1),
+                                torch.softmax(self.student_cohort[j](data).detach(), dim=-1),
+                                reduction='batchmean', log_target=False)
+                        else:
+                            student_loss += self.loss_fn(
+                                self.student_cohort[i](data),
+                                self.student_cohort[j](data))
                     student_loss /= num_students - 1
                     student_loss += F.cross_entropy(self.student_cohort[i](data), label)
                     student_loss.backward()
@@ -119,13 +127,14 @@ class DML:
 
             epoch_acc = correct / length_of_dataset
 
-            for student in self.student_cohort:
+            for student_id, student in enumerate(self.student_cohort):
                 _, epoch_val_acc = self._evaluate_model(student)
 
                 if epoch_val_acc > best_acc:
                     best_acc = epoch_val_acc
                     self.best_student_model_weights = deepcopy(student.state_dict())
                     self.best_student = student
+                    self.best_student_id = student_id
 
             if self.log:
                 self.writer.add_scalar("Training loss/Student", epoch_loss, epochs)
@@ -136,9 +145,7 @@ class DML:
 
         self.best_student.load_state_dict(self.best_student_model_weights)
         if save_model:
-            print(
-                f"The best student model is the model number {best_student_id+1} in the cohort"
-            )
+            print(f"The best student model is the model number {self.best_student_id} in the cohort")
             torch.save(self.best_student.state_dict(), save_model_path)
         if plot_losses:
             plt.plot(loss_arr)
