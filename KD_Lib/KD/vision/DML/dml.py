@@ -95,6 +95,12 @@ class DML:
 
                 for optim in self.student_optimizers:
                     optim.zero_grad()
+                
+                # Forward passes to compute logits
+                cohort_logits = []
+                for n in self.student_cohort:
+                    logits = n(data)
+                    cohort_logits.append(logits)
 
                 avg_student_loss = 0
                 for i in range(num_students):
@@ -103,16 +109,17 @@ class DML:
                         if i == j:
                             continue
                         if self.loss_fn is "KLDivLoss":
-                            student_loss += nn.KLDivLoss(
-                                torch.log_softmax(self.student_cohort[i](data), dim=-1),
-                                torch.softmax(self.student_cohort[j](data).detach(), dim=-1),
+                            # Here it is crucial to detach net_logits[j], since we do not want to backpropagate through network j in this iteration, only i!
+                            student_loss += (1 / (num_students - 1)) * F.kl_div(
+                                torch.log_softmax(cohort_logits[i], dim=-1),
+                                torch.softmax(cohort_logits[j].detach(), dim=-1),
                                 reduction='batchmean', log_target=False)
                         else:
-                            student_loss += self.loss_fn(
+                            student_loss += (1 / (num_students - 1)) * self.loss_fn(
                                 self.student_cohort[i](data),
                                 self.student_cohort[j](data))
-                    student_loss /= num_students - 1
-                    student_loss += F.cross_entropy(self.student_cohort[i](data), label)
+
+                    student_loss += F.cross_entropy(cohort_logits[i], label)
                     student_loss.backward()
                     self.student_optimizers[i].step()
 
