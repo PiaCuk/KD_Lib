@@ -58,6 +58,9 @@ class DML:
                 "Either an invalid device or CUDA is not available. Defaulting to CPU."
             )
             self.device = torch.device("cpu")
+        
+        for student in self.student_cohort:
+            student.to(self.device)
 
     def train_students(
         self,
