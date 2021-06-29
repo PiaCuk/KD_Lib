@@ -28,7 +28,7 @@ train_loader = torch.utils.data.DataLoader(
             [transforms.ToTensor(), transforms.Normalize((0.2860,), (0.3530,))]
         ),
     ),
-    batch_size=512,
+    batch_size=128,
     shuffle=True,
 )
 
@@ -40,7 +40,7 @@ test_loader = torch.utils.data.DataLoader(
             [transforms.ToTensor(), transforms.Normalize((0.2860,), (0.3530,))]
         ),
     ),
-    batch_size=512,
+    batch_size=128,
     shuffle=True,
 )
 
@@ -63,7 +63,7 @@ dml = DML(student_cohort, train_loader, test_loader,
 dml.get_parameters()
 
 # Run DML
-dml.train_students(epochs=10, save_model=False)
+dml.train_students(epochs=1, save_model=True)
 
 # Evaluate students
 dml.evaluate()

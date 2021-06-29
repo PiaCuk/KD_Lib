@@ -67,7 +67,7 @@ class DML:
         epochs=20,
         plot_losses=True,
         save_model=True,
-        save_model_path="./models/student.pth",
+        save_model_path="./Experiments",
     ):
         for student in self.student_cohort:
             student.train()
@@ -116,9 +116,7 @@ class DML:
                     student_loss.backward()
                     self.student_optimizers[i].step()
 
-                    avg_student_loss += student_loss
-
-                avg_student_loss /= num_students
+                    avg_student_loss += (1 / num_students) * student_loss
 
                 predictions = []
                 correct_preds = []
@@ -142,10 +140,13 @@ class DML:
                     self.best_student_model_weights = deepcopy(student.state_dict())
                     self.best_student = student
                     self.best_student_id = student_id
+                
+                if self.log:
+                    self.writer.add_scalar("Accuracy/Validation student"+str(student_id), epoch_val_acc, epochs)
 
             if self.log:
-                self.writer.add_scalar("Training loss/Student", epoch_loss, epochs)
-                self.writer.add_scalar("Training accuracy/Student", epoch_acc, epochs)
+                self.writer.add_scalar("Loss/Train", epoch_loss, epochs)
+                self.writer.add_scalar("Accuracy/Train", epoch_acc, epochs)
 
             loss_arr.append(epoch_loss)
             print(f"Epoch: {ep+1}, Loss: {epoch_loss}, Training accuracy: {epoch_acc}")
@@ -153,7 +154,10 @@ class DML:
         self.best_student.load_state_dict(self.best_student_model_weights)
         if save_model:
             print(f"The best student model is the model number {self.best_student_id} in the cohort")
-            torch.save(self.best_student.state_dict(), save_model_path)
+            if not os.path.isdir(save_model_path):
+                os.mkdir(save_model_path)
+            torch.save(self.best_student.state_dict(), os.path.join(
+                save_model_path, ("student" + str(self.best_student_id) + ".pth")))
         if plot_losses:
             plt.plot(loss_arr)
 
@@ -200,9 +204,6 @@ class DML:
             model = deepcopy(student).to(self.device)
             print(f"Evaluating student {i}")
             out, acc = self._evaluate_model(model)
-
-            if self.log:
-                self.writer.add_scalar("Validation accuracy student"+str(i), acc)
 
     def get_parameters(self):
         """
