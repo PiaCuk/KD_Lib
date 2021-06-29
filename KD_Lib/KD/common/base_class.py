@@ -36,7 +36,7 @@ class BaseClass:
         loss_fn=nn.KLDivLoss(),
         temp=20.0,
         distil_weight=0.5,
-        device="cpu",
+        device=torch.device("cpu"),
         log=False,
         logdir="./Experiments",
     ):
@@ -53,9 +53,9 @@ class BaseClass:
         if self.log:
             self.writer = SummaryWriter(logdir)
 
-        if device == "cpu":
+        if device.type == "cpu":
             self.device = torch.device("cpu")
-        elif device == "cuda":
+        elif device.type == "cuda":
             if torch.cuda.is_available():
                 self.device = torch.device("cuda")
             else:
