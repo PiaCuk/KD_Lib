@@ -60,11 +60,11 @@ class BaseClass:
             if torch.cuda.is_available():
                 self.device = torch.device("cuda")
                 print("Device is set to CUDA.")
-            else:
-                print(
-                   "Either an invalid device or CUDA is not available. Defaulting to CPU."
-                )
-                self.device = torch.device("cpu")
+        else:
+            print(
+                "Either an invalid device or CUDA is not available. Defaulting to CPU."
+            )
+            self.device = torch.device("cpu")
 
         if teacher_model:
             self.teacher_model = teacher_model.to(self.device)
