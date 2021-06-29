@@ -116,8 +116,7 @@ class DML:
                                 reduction='batchmean', log_target=False)
                         else:
                             student_loss += (1 / (num_students - 1)) * self.loss_fn(
-                                self.student_cohort[i](data),
-                                self.student_cohort[j](data))
+                                cohort_logits[i], cohort_logits[j].detach())
 
                     student_loss += F.cross_entropy(cohort_logits[i], label)
                     student_loss.backward()
