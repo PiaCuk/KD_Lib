@@ -97,10 +97,10 @@ class DML:
                     optim.zero_grad()
                 
                 # Forward passes to compute logits
-                cohort_logits = []
+                student_outputs = []
                 for n in self.student_cohort:
                     logits = n(data)
-                    cohort_logits.append(logits)
+                    student_outputs.append(logits)
 
                 avg_student_loss = 0
                 for i in range(num_students):
@@ -108,17 +108,11 @@ class DML:
                     for j in range(num_students):
                         if i == j:
                             continue
-                        if self.loss_fn is "KLDivLoss":
-                            # Here it is crucial to detach net_logits[j], since we do not want to backpropagate through network j in this iteration, only i!
-                            student_loss += (1 / (num_students - 1)) * F.kl_div(
-                                torch.log_softmax(cohort_logits[i], dim=-1),
-                                torch.softmax(cohort_logits[j].detach(), dim=-1),
-                                reduction='batchmean', log_target=False)
                         else:
                             student_loss += (1 / (num_students - 1)) * self.loss_fn(
-                                cohort_logits[i], cohort_logits[j].detach())
+                                student_outputs[i], student_outputs[j].detach())
 
-                    student_loss += F.cross_entropy(cohort_logits[i], label)
+                    student_loss += F.cross_entropy(student_outputs[i], label)
                     student_loss.backward()
                     self.student_optimizers[i].step()
 
@@ -128,8 +122,8 @@ class DML:
 
                 predictions = []
                 correct_preds = []
-                for i, student in enumerate(self.student_cohort):
-                    predictions.append(student(data).argmax(dim=1, keepdim=True))
+                for i in range(num_students):
+                    predictions.append(student_outputs[i].argmax(dim=1, keepdim=True))
                     correct_preds.append(
                         predictions[i].eq(label.view_as(predictions[i])).sum().item()
                     )
@@ -141,7 +135,7 @@ class DML:
             epoch_acc = correct / length_of_dataset
 
             for student_id, student in enumerate(self.student_cohort):
-                _, epoch_val_acc = self._evaluate_model(student)
+                _, epoch_val_acc = self._evaluate_model(student, verbose=False)
 
                 if epoch_val_acc > best_acc:
                     best_acc = epoch_val_acc
@@ -154,7 +148,7 @@ class DML:
                 self.writer.add_scalar("Training accuracy/Student", epoch_acc, epochs)
 
             loss_arr.append(epoch_loss)
-            print(f"Epoch: {ep+1}, Loss: {epoch_loss}, Accuracy: {epoch_acc}")
+            print(f"Epoch: {ep+1}, Loss: {epoch_loss}, Training accuracy: {epoch_acc}")
 
         self.best_student.load_state_dict(self.best_student_model_weights)
         if save_model:
@@ -205,7 +199,10 @@ class DML:
             print("-" * 80)
             model = deepcopy(student).to(self.device)
             print(f"Evaluating student {i}")
-            _ = self._evaluate_model(model)
+            out, acc = self._evaluate_model(model)
+
+            if self.log:
+                self.writer.add_scalar("Validation accuracy student"+str(i), acc)
 
     def get_parameters(self):
         """

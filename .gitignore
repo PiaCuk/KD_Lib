@@ -109,6 +109,7 @@ data
 mnist_data
 Experiments
 cifar_data
+FashionMNIST
 
 # virtual environment
 kd_venv
