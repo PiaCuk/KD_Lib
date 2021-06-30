@@ -142,11 +142,11 @@ class DML:
                     self.best_student_id = student_id
                 
                 if self.log:
-                    self.writer.add_scalar("Accuracy/Validation student"+str(student_id), epoch_val_acc, epochs)
+                    self.writer.add_scalar("Accuracy/Validation student"+str(student_id), epoch_val_acc, ep)
 
             if self.log:
-                self.writer.add_scalar("Loss/Train", epoch_loss, epochs)
-                self.writer.add_scalar("Accuracy/Train", epoch_acc, epochs)
+                self.writer.add_scalar("Loss/Train", epoch_loss, ep)
+                self.writer.add_scalar("Accuracy/Train", epoch_acc, ep)
 
             loss_arr.append(epoch_loss)
             print(f"Epoch: {ep+1}, Loss: {epoch_loss}, Training accuracy: {epoch_acc}")
