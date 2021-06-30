@@ -7,6 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 from copy import deepcopy
 import os
+from tqdm import tqdm
 
 
 class DML:
@@ -83,12 +84,11 @@ class DML:
 
         print("\nTraining students...")
 
-        for ep in range(epochs):
+        for ep in tqdm(range(epochs), position=0):
             epoch_loss = 0.0
             correct = 0
 
-            # TODO tqdm here to see progress in epoch?
-            for (data, label) in self.train_loader:
+            for (data, label) in tqdm(self.train_loader, total=int(len(self.train_loader.dataset) / self.train_loader.batch_size), position=1):
 
                 data = data.to(self.device)
                 label = label.to(self.device)
