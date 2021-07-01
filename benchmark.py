@@ -28,7 +28,7 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
         else:
             # Guo et al. additionally use weight_decay=0.0001 and nesterov=False
             return torch.optim.SGD(params, 0.1, momentum=0.9, nesterov=True)
-    
+
     resnet_params = ([4, 4, 4, 4, 4], 1, 10)
     if algo is "dml":
         # Define models
@@ -36,8 +36,10 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
         student2 = ResNet18(*resnet_params)
         student_cohort = [student1, student2]
 
-        student_optimizer1 = _create_optim(student1.parameters(), adam=use_adam)
-        student_optimizer2 = _create_optim(student2.parameters(), adam=use_adam)
+        student_optimizer1 = _create_optim(
+            student1.parameters(), adam=use_adam)
+        student_optimizer2 = _create_optim(
+            student2.parameters(), adam=use_adam)
         student_optimizers = [student_optimizer1, student_optimizer2]
         # Define DML with logging to Tensorboard
         distiller = DML(student_cohort, train_loader, test_loader, student_optimizers,
