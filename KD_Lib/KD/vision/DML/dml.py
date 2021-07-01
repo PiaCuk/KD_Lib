@@ -53,7 +53,7 @@ class DML:
             # Drop lr by 0.1 every 60 epochs (Zhang et al.)
             for i in range(len(self.student_cohort)):
                 self.student_schedulers.append(torch.optim.lr_scheduler.StepLR(
-                    self.student_optimizers[i], step_size=60, gamma=0.1, verbose=True))
+                    self.student_optimizers[i], step_size=60, gamma=0.1))
 
         if device.type == "cpu":
             self.device = torch.device("cpu")
