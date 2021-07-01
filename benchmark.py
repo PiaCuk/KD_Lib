@@ -24,10 +24,11 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
     def _create_optim(params, adam=False):
         # These are the optimizers used by Zhang et al.
         if adam:
-            return torch.optim.Adam(params, 0.0002, betas=[0.5, 0.999])
+            # Zhang et al. use lr=0.0002, betas=(0.5, 0.999)
+            return torch.optim.Adam(params, lr=0.001, betas=(0.9, 0.999))
         else:
-            # Guo et al. additionally use weight_decay=0.0001 and nesterov=False
-            return torch.optim.SGD(params, 0.1, momentum=0.9, nesterov=True)
+            # Zhang et al. use no weight decay and nesterov=True
+            return torch.optim.SGD(params, 0.1, momentum=0.9, weight_decay=0.0001)
 
     resnet_params = ([4, 4, 4, 4, 4], 1, 10)
     if algo is "dml":
@@ -43,7 +44,7 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
         student_optimizers = [student_optimizer1, student_optimizer2]
         # Define DML with logging to Tensorboard
         distiller = DML(student_cohort, train_loader, test_loader, student_optimizers,
-                        loss_fn=loss_fn, log=True, logdir=save_path, device=device, use_scheduler=not use_adam)
+                        loss_fn=loss_fn, log=True, logdir=save_path, device=device, use_scheduler=True)
 
     else:
         teacher = ResNet18(*resnet_params)
@@ -53,7 +54,7 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
         student_optimizer = _create_optim(student.parameters(), adam=use_adam)
         # Define KD with logging to Tensorboard
         distiller = VanillaKD(teacher, student, train_loader, test_loader, teacher_optimizer,
-                              student_optimizer, loss_fn=loss_fn, log=True, logdir=save_path, device=device, use_scheduler=not use_adam)
+                              student_optimizer, loss_fn=loss_fn, log=True, logdir=save_path, device=device, use_scheduler=True)
     return distiller
 
 
@@ -103,5 +104,5 @@ if __name__ == "__main__":
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-    main("dml", 2, 200, 2048, "/data1/9cuk/kd_lib/test/", use_adam=True)
+    main("dml", 2, 200, 2048, "/data1/9cuk/kd_lib/session1", use_adam=True)
     # main("vanilla", 2, 200, 2048, "/data1/9cuk/kd_lib/test/, use_adam=True)
