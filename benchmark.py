@@ -21,6 +21,13 @@ class CustomKLDivLoss(nn.Module):
 
 
 def create_distiller(algo, lr, train_loader, test_loader, device, save_path, loss_fn=CustomKLDivLoss()):
+    def _create_optim(params, lr, adam=False):
+        # These are the optimizers used by Zhang et al.
+        if adam:
+            return torch.optim.Adam(params, 0.0002, betas=[0.5, 0.999])
+        else:
+            return torch.optim.SGD(params, lr, momentum=0.9, nesterov=True)
+    
     resnet_params = ([4, 4, 4, 4, 4], 1, 10)
     if algo is "dml":
         # Define models
@@ -28,35 +35,37 @@ def create_distiller(algo, lr, train_loader, test_loader, device, save_path, los
         student2 = ResNet18(*resnet_params)
         student_cohort = [student1, student2]
 
-        student_optimizer1 = torch.optim.Adam(student1.parameters(), lr)
-        student_optimizer2 = torch.optim.Adam(student2.parameters(), lr)
+        student_optimizer1 = _create_optim(student1.parameters(), lr)
+        student_optimizer2 = _create_optim(student2.parameters(), lr)
         student_optimizers = [student_optimizer1, student_optimizer2]
-        # Define DML
-        distiller = DML(student_cohort, train_loader, test_loader, student_optimizers, loss_fn=loss_fn, log=True, logdir=save_path, device=device)
-        
+        # Define DML with logging to Tensorboard
+        distiller = DML(student_cohort, train_loader, test_loader, student_optimizers,
+                        loss_fn=loss_fn, log=True, logdir=save_path, device=device)
+
     else:
         teacher = ResNet18(*resnet_params)
         student = ResNet18(*resnet_params)
 
-        teacher_optimizer = torch.optim.Adam(teacher.parameters(), lr)
-        student_optimizer = torch.optim.Adam(student.parameters(), lr)
-        # TODO logging
-        distiller = VanillaKD(teacher, student, train_loader, test_loader, teacher_optimizer, student_optimizer, loss_fn=loss_fn, device=device)
+        teacher_optimizer = _create_optim(teacher.parameters(), lr)
+        student_optimizer = _create_optim(student.parameters(), lr)
+        # Define KD with logging to Tensorboard
+        distiller = VanillaKD(teacher, student, train_loader, test_loader, teacher_optimizer,
+                              student_optimizer, loss_fn=loss_fn, log=True, logdir=save_path, device=device)
     return distiller
 
 
 def main(algo, runs, epochs, batch_size, lr, save_path):
     train_loader = torch.utils.data.DataLoader(
-    datasets.FashionMNIST(
-        "FashionMNIST",
-        train=True,
-        download=True,
-        transform=transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.2860,), (0.3530,))]
+        datasets.FashionMNIST(
+            "FashionMNIST",
+            train=True,
+            download=True,
+            transform=transforms.Compose(
+                [transforms.ToTensor(), transforms.Normalize((0.2860,), (0.3530,))]
+            ),
         ),
-    ),
-    batch_size=batch_size,
-    shuffle=True,
+        batch_size=batch_size,
+        shuffle=True,
     )
 
     test_loader = torch.utils.data.DataLoader(
@@ -73,21 +82,23 @@ def main(algo, runs, epochs, batch_size, lr, save_path):
 
     # Set device to be trained on
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    
+
     for i in range(runs):
         print(f"Starting run {i}")
         run_path = os.path.join(save_path, algo + str(i).zfill(3))
-        distiller = create_distiller(algo, lr, train_loader, test_loader, device, save_path=run_path)
-        
+        distiller = create_distiller(
+            algo, lr, train_loader, test_loader, device, save_path=run_path)
+
         # Run DML
-        distiller.train_students(epochs=epochs, save_model=True, save_model_path=run_path)
+        distiller.train_students(
+            epochs=epochs, save_model=True, save_model_path=run_path)
         # Evaluate students
         distiller.evaluate()
 
 
 if __name__ == "__main__":
-    os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"]="0"
-    
-    main("dml", 10, 100, 512, 0.001, "/data1/9cuk/kd_lib/")
-    main("vanilla", 10, 100, 512, 0.001, "/data1/9cuk/kd_lib/")
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
+    main("dml", 10, 100, 512, 0.1, "/data1/9cuk/kd_lib/")
+    main("vanilla", 10, 100, 512, 0.1, "/data1/9cuk/kd_lib/")

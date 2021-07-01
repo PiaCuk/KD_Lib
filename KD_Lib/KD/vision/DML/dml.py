@@ -34,6 +34,7 @@ class DML:
         device="cpu",
         log=False,
         logdir="./Experiments",
+        use_scheduler=True
     ):
 
         self.student_cohort = student_cohort
@@ -43,9 +44,16 @@ class DML:
         self.loss_fn = loss_fn
         self.log = log
         self.logdir = logdir
+        self.student_schedulers = []
 
         if self.log:
             self.writer = SummaryWriter(logdir)
+        
+        if use_scheduler:
+            # Drop lr by 0.1 every 60 epochs (Zhang et al.)
+            for i in range(len(self.student_cohort)):
+                self.student_schedulers.append(torch.optim.lr_scheduler.StepLR(
+                    self.student_optimizers[i], step_size=60, gamma=0.1, verbose=True))
 
         if device.type == "cpu":
             self.device = torch.device("cpu")
@@ -115,6 +123,8 @@ class DML:
                     student_loss += F.cross_entropy(student_outputs[i], label)
                     student_loss.backward()
                     self.student_optimizers[i].step()
+                    if self.student_schedulers:
+                        self.student_schedulers[i].step()
 
                     avg_student_loss += (1 / num_students) * student_loss
 
