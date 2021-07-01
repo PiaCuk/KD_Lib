@@ -20,13 +20,14 @@ class CustomKLDivLoss(nn.Module):
                         reduction=self.reduction, log_target=self.log_target)
 
 
-def create_distiller(algo, lr, train_loader, test_loader, device, save_path, loss_fn=CustomKLDivLoss()):
-    def _create_optim(params, lr, adam=False):
+def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn=CustomKLDivLoss(), use_adam=True):
+    def _create_optim(params, adam=False):
         # These are the optimizers used by Zhang et al.
         if adam:
             return torch.optim.Adam(params, 0.0002, betas=[0.5, 0.999])
         else:
-            return torch.optim.SGD(params, lr, momentum=0.9, nesterov=True)
+            # Guo et al. additionally use weight_decay=0.0001 and nesterov=False
+            return torch.optim.SGD(params, 0.1, momentum=0.9, nesterov=True)
     
     resnet_params = ([4, 4, 4, 4, 4], 1, 10)
     if algo is "dml":
@@ -35,26 +36,26 @@ def create_distiller(algo, lr, train_loader, test_loader, device, save_path, los
         student2 = ResNet18(*resnet_params)
         student_cohort = [student1, student2]
 
-        student_optimizer1 = _create_optim(student1.parameters(), lr)
-        student_optimizer2 = _create_optim(student2.parameters(), lr)
+        student_optimizer1 = _create_optim(student1.parameters(), adam=use_adam)
+        student_optimizer2 = _create_optim(student2.parameters(), adam=use_adam)
         student_optimizers = [student_optimizer1, student_optimizer2]
         # Define DML with logging to Tensorboard
         distiller = DML(student_cohort, train_loader, test_loader, student_optimizers,
-                        loss_fn=loss_fn, log=True, logdir=save_path, device=device)
+                        loss_fn=loss_fn, log=True, logdir=save_path, device=device, use_scheduler=not use_adam)
 
     else:
         teacher = ResNet18(*resnet_params)
         student = ResNet18(*resnet_params)
 
-        teacher_optimizer = _create_optim(teacher.parameters(), lr)
-        student_optimizer = _create_optim(student.parameters(), lr)
+        teacher_optimizer = _create_optim(teacher.parameters(), adam=use_adam)
+        student_optimizer = _create_optim(student.parameters(), adam=use_adam)
         # Define KD with logging to Tensorboard
         distiller = VanillaKD(teacher, student, train_loader, test_loader, teacher_optimizer,
-                              student_optimizer, loss_fn=loss_fn, log=True, logdir=save_path, device=device)
+                              student_optimizer, loss_fn=loss_fn, log=True, logdir=save_path, device=device, use_scheduler=not use_adam)
     return distiller
 
 
-def main(algo, runs, epochs, batch_size, lr, save_path):
+def main(algo, runs, epochs, batch_size, save_path, use_adam=True):
     train_loader = torch.utils.data.DataLoader(
         datasets.FashionMNIST(
             "FashionMNIST",
@@ -87,7 +88,7 @@ def main(algo, runs, epochs, batch_size, lr, save_path):
         print(f"Starting run {i}")
         run_path = os.path.join(save_path, algo + str(i).zfill(3))
         distiller = create_distiller(
-            algo, lr, train_loader, test_loader, device, save_path=run_path)
+            algo, train_loader, test_loader, device, save_path=run_path, use_adam=use_adam)
 
         # Run DML
         distiller.train_students(
@@ -100,5 +101,5 @@ if __name__ == "__main__":
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-    main("dml", 10, 100, 512, 0.1, "/data1/9cuk/kd_lib/")
-    main("vanilla", 10, 100, 512, 0.1, "/data1/9cuk/kd_lib/")
+    main("dml", 2, 200, 2048, "/data1/9cuk/kd_lib/test/", use_adam=True)
+    # main("vanilla", 2, 200, 2048, "/data1/9cuk/kd_lib/test/, use_adam=True)
