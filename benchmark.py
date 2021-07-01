@@ -40,6 +40,7 @@ def create_distiller(algo, lr, train_loader, test_loader, device, save_path, los
 
         teacher_optimizer = torch.optim.Adam(teacher.parameters(), lr)
         student_optimizer = torch.optim.Adam(student.parameters(), lr)
+        # TODO logging
         distiller = VanillaKD(teacher, student, train_loader, test_loader, teacher_optimizer, student_optimizer, loss_fn=loss_fn, device=device)
     return distiller
 
@@ -85,4 +86,8 @@ def main(algo, runs, epochs, batch_size, lr, save_path):
 
 
 if __name__ == "__main__":
+    os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"]="0"
+    
     main("dml", 10, 100, 512, 0.001, "/data1/9cuk/kd_lib/")
+    main("vanilla", 10, 100, 512, 0.001, "/data1/9cuk/kd_lib/")

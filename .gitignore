@@ -110,6 +110,7 @@ mnist_data
 Experiments
 cifar_data
 FashionMNIST
+cvpc18
 
 # virtual environment
 kd_venv
