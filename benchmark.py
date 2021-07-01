@@ -104,8 +104,10 @@ def main(algo, runs, epochs, batch_size, save_path, use_adam=True):
             # Not needed here, as we log it at the end of each epoch
             # distiller.evaluate()
         else:
-            distiller.train_teacher(epochs=epochs, plot_losses=False, save_model=False)
-            vanilla_distiller.train_student(epochs=epochs, plot_losses=False, save_model=True, save_model_pth=run_path)
+            distiller.train_teacher(
+                epochs=epochs, plot_losses=False, save_model=False)
+            distiller.train_student(
+                epochs=epochs, plot_losses=False, save_model=True, save_model_pth=run_path)
 
 
 if __name__ == "__main__":
