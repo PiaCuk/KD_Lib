@@ -53,7 +53,7 @@ class DML:
             # Drop lr by 0.1 every 60 epochs (Zhang et al.)
             for i in range(len(self.student_cohort)):
                 self.student_schedulers.append(torch.optim.lr_scheduler.StepLR(
-                    self.student_optimizers[i], step_size=60, gamma=0.1))
+                    self.student_optimizers[i], step_size=20, gamma=0.1))
 
         if device.type == "cpu":
             self.device = torch.device("cpu")
@@ -123,8 +123,6 @@ class DML:
                     student_loss += F.cross_entropy(student_outputs[i], label)
                     student_loss.backward()
                     self.student_optimizers[i].step()
-                    if self.student_schedulers:
-                        self.student_schedulers[i].step()
 
                     avg_student_loss += (1 / num_students) * student_loss
 
@@ -159,7 +157,13 @@ class DML:
                 self.writer.add_scalar("Accuracy/Train", epoch_acc, ep)
 
             loss_arr.append(epoch_loss)
-            print(f"Epoch: {ep+1}, Loss: {epoch_loss}, Training accuracy: {epoch_acc}")
+            
+            if self.student_schedulers:
+                for i in range(num_students):
+                    self.student_schedulers[i].step()
+                    if ep % 10 is 0:
+                        print(f"Epoch {ep}, Learning rate {self.student_schedulers[i].get_last_lr()}")
+                        print(f"Epoch: {ep}, Loss: {epoch_loss}, Training accuracy: {epoch_acc}")
 
         self.best_student.load_state_dict(self.best_student_model_weights)
         if save_model:

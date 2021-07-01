@@ -135,9 +135,9 @@ class BaseClass:
                 )
 
             if self.log:
-                self.writer.add_scalar("Training loss/Teacher", epoch_loss, ep)
-                self.writer.add_scalar("Training accuracy/Teacher", epoch_acc, ep)
-                self.writer.add_scalar("Validation accuracy/Teacher", epoch_val_acc, ep)
+                self.writer.add_scalar("Loss/Train teacher", epoch_loss, ep)
+                self.writer.add_scalar("Accuracy/Train teacher", epoch_acc, ep)
+                self.writer.add_scalar("Accuracy/Validation teacher", epoch_val_acc, ep)
 
             loss_arr.append(epoch_loss)
             print("Epoch: {}, Loss: {}, Accuracy: {}".format(ep+1, epoch_loss, epoch_acc))
@@ -215,9 +215,9 @@ class BaseClass:
                 )
 
             if self.log:
-                self.writer.add_scalar("Training loss/Student", epoch_loss, ep)
-                self.writer.add_scalar("Training accuracy/Student", epoch_acc, ep)
-                self.writer.add_scalar("Validation accuracy/Student", epoch_val_acc, ep)
+                self.writer.add_scalar("Loss/Train student", epoch_loss, ep)
+                self.writer.add_scalar("Accuracy/Train student", epoch_acc, ep)
+                self.writer.add_scalar("Accuracy/Validation student", epoch_val_acc, ep)
 
             loss_arr.append(epoch_loss)
             print("Epoch: {}, Loss: {}, Accuracy: {}".format(ep+1, epoch_loss, epoch_acc))

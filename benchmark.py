@@ -24,8 +24,7 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
     def _create_optim(params, adam=False):
         # These are the optimizers used by Zhang et al.
         if adam:
-            # Zhang et al. use lr=0.0002, betas=(0.5, 0.999)
-            return torch.optim.Adam(params, lr=0.001, betas=(0.9, 0.999))
+            return torch.optim.Adam(params, lr=0.01, betas=(0.9, 0.999))
         else:
             # Zhang et al. use no weight decay and nesterov=True
             return torch.optim.SGD(params, 0.1, momentum=0.9, weight_decay=0.0001)
@@ -54,7 +53,7 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
         student_optimizer = _create_optim(student.parameters(), adam=use_adam)
         # Define KD with logging to Tensorboard
         distiller = VanillaKD(teacher, student, train_loader, test_loader, teacher_optimizer,
-                              student_optimizer, loss_fn=loss_fn, log=True, logdir=save_path, device=device, use_scheduler=True)
+                              student_optimizer, loss_fn=loss_fn, log=True, logdir=save_path, device=device)
     return distiller
 
 
@@ -70,6 +69,8 @@ def main(algo, runs, epochs, batch_size, save_path, use_adam=True):
         ),
         batch_size=batch_size,
         shuffle=True,
+        pin_memory=True,
+        num_workers=14,
     )
 
     test_loader = torch.utils.data.DataLoader(
@@ -82,6 +83,8 @@ def main(algo, runs, epochs, batch_size, save_path, use_adam=True):
         ),
         batch_size=batch_size,
         shuffle=True,
+        pin_memory=True,
+        num_workers=14,
     )
 
     # Set device to be trained on
@@ -93,16 +96,21 @@ def main(algo, runs, epochs, batch_size, save_path, use_adam=True):
         distiller = create_distiller(
             algo, train_loader, test_loader, device, save_path=run_path, use_adam=use_adam)
 
-        # Run DML
-        distiller.train_students(
-            epochs=epochs, save_model=True, save_model_path=run_path)
-        # Evaluate students
-        distiller.evaluate()
+        if algo is "dml":
+            # Run DML
+            distiller.train_students(
+                epochs=epochs, save_model=True, save_model_path=run_path, plot_losses=False)
+            # Evaluate students
+            # Not needed here, as we log it at the end of each epoch
+            # distiller.evaluate()
+        else:
+            distiller.train_teacher(epochs=epochs, plot_losses=False, save_model=False)
+            vanilla_distiller.train_student(epochs=epochs, plot_losses=False, save_model=True, save_model_pth=run_path)
 
 
 if __name__ == "__main__":
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-    main("dml", 2, 200, 2048, "/data1/9cuk/kd_lib/session1", use_adam=True)
-    # main("vanilla", 2, 200, 2048, "/data1/9cuk/kd_lib/test/, use_adam=True)
+    # main("dml", 5, 100, 2048, "/data1/9cuk/kd_lib/session1", use_adam=True)
+    main("vanillla", 5, 100, 2048, "/data1/9cuk/kd_lib/session1", use_adam=True)
