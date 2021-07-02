@@ -75,11 +75,10 @@ class DMLEnsemble:
     def ensemble_target(self, logits_list, j):
         # Calculate ensemble target given a list of logits, omitting the j'th element
         num_logits = len(logits_list)
-        ensemble_target = torch.zeros(logits_list[j].shape)
+        ensemble_target = torch.zeros(logits_list[j].shape).to(self.device)
         for i, logits in enumerate(logits_list):
             if i != j:
-                ensemble_target += (1 / (num_logits - 1)) * \
-                    F.softmax(logits, dim=-1)
+                ensemble_target += (1 / (num_logits - 1)) * F.softmax(logits, dim=-1)
         return ensemble_target
 
     def train_students(
