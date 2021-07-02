@@ -125,7 +125,7 @@ class DML_e:
                 for i in range(num_students):
                     student_loss = 0
                     # Calculate ensemble target
-                    target = ensemble_target(student_outputs, i)
+                    target = self.ensemble_target(student_outputs, i)
                     student_loss += self.loss_fn(student_outputs[i], target.detach())
 
                     student_loss += F.cross_entropy(student_outputs[i], label)
