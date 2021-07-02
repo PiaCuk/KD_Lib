@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch import Tensor
 from torchvision import datasets, transforms
 
-from KD_Lib.KD import VanillaKD, DML
+from KD_Lib.KD import VanillaKD, DML, DMLEnsemble
 from KD_Lib.models import Shallow, ResNet18
 
 
@@ -20,7 +20,7 @@ class CustomKLDivLoss(nn.Module):
                         reduction=self.reduction, log_target=self.log_target)
 
 
-def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn=CustomKLDivLoss(), use_adam=True):
+def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn=CustomKLDivLoss(), num_students=2, use_adam=True):
     def _create_optim(params, adam=False):
         # These are the optimizers used by Zhang et al.
         if adam:
@@ -32,17 +32,18 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
     resnet_params = ([4, 4, 4, 4, 4], 1, 10)
     if algo is "dml":
         # Define models
-        student1 = ResNet18(*resnet_params)
-        student2 = ResNet18(*resnet_params)
-        student_cohort = [student1, student2]
-
-        student_optimizer1 = _create_optim(
-            student1.parameters(), adam=use_adam)
-        student_optimizer2 = _create_optim(
-            student2.parameters(), adam=use_adam)
-        student_optimizers = [student_optimizer1, student_optimizer2]
+        student_cohort = [ResNet18(*resnet_params) for i in range(num_students)]
+        student_optimizers = [_create_optim(student_cohort[i].parameters(), adam=use_adam) for i in range(num_students)]
         # Define DML with logging to Tensorboard
         distiller = DML(student_cohort, train_loader, test_loader, student_optimizers,
+                        loss_fn=loss_fn, log=True, logdir=save_path, device=device, use_scheduler=True)
+    
+    elif algo is "dml_e":
+        # Define models
+        student_cohort = [ResNet18(*resnet_params) for i in range(num_students)]
+        student_optimizers = [_create_optim(student_cohort[i].parameters(), adam=use_adam) for i in range(num_students)]
+        # Define DML with ensemble teacher with logging to Tensorboard
+        distiller = DMLEnsemble(student_cohort, train_loader, test_loader, student_optimizers,
                         loss_fn=loss_fn, log=True, logdir=save_path, device=device, use_scheduler=True)
 
     else:
@@ -115,4 +116,5 @@ if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
     # main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session1", use_adam=True)
+    # main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/session1", use_adam=True)
     main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/session1", use_adam=True)
