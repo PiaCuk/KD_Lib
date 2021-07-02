@@ -5,6 +5,7 @@ from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 from copy import deepcopy
 import os
+from tqdm import tqdm
 
 
 class BaseClass:
@@ -80,7 +81,7 @@ class BaseClass:
         epochs=20,
         plot_losses=True,
         save_model=True,
-        save_model_pth="./models/teacher.pt",
+        save_model_path="./models/teacher.pt",
     ):
         """
         Function that will be training the teacher
@@ -88,7 +89,7 @@ class BaseClass:
         :param epochs (int): Number of epochs you want to train the teacher
         :param plot_losses (bool): True if you want to plot the losses
         :param save_model (bool): True if you want to save the teacher model
-        :param save_model_pth (str): Path where you want to store the teacher model
+        :param save_model_path (str): Path where you want to store the teacher model
         """
         self.teacher_model.train()
         loss_arr = []
@@ -96,13 +97,13 @@ class BaseClass:
         best_acc = 0.0
         self.best_teacher_model_weights = deepcopy(self.teacher_model.state_dict())
 
-        save_dir = os.path.dirname(save_model_pth)
+        save_dir = os.path.dirname(save_model_path)
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
         print("Training Teacher... ")
 
-        for ep in range(epochs):
+        for ep in tqdm(range(epochs), position=0):
             epoch_loss = 0.0
             correct = 0
             for (data, label) in self.train_loader:
@@ -126,7 +127,7 @@ class BaseClass:
 
             epoch_acc = correct / length_of_dataset
 
-            epoch_val_acc = self.evaluate(teacher=True)
+            epoch_val_acc = self.evaluate(teacher=True, verbose=False)
 
             if epoch_val_acc > best_acc:
                 best_acc = epoch_val_acc
@@ -140,13 +141,13 @@ class BaseClass:
                 self.writer.add_scalar("Accuracy/Validation teacher", epoch_val_acc, ep)
 
             loss_arr.append(epoch_loss)
-            print("Epoch: {}, Loss: {}, Accuracy: {}".format(ep+1, epoch_loss, epoch_acc))
+            print("Epoch: {}, Loss: {}, Accuracy: {}".format(ep, epoch_loss, epoch_acc))
 
             self.post_epoch_call(ep)
 
         self.teacher_model.load_state_dict(self.best_teacher_model_weights)
         if save_model:
-            torch.save(self.teacher_model.state_dict(), save_model_pth)
+            torch.save(self.teacher_model.state_dict(), os.path.join(save_model_path, "teacher.pt"))
         if plot_losses:
             plt.plot(loss_arr)
 
@@ -155,7 +156,7 @@ class BaseClass:
         epochs=10,
         plot_losses=True,
         save_model=True,
-        save_model_pth="./models/student.pt",
+        save_model_path="./models/student.pt",
     ):
         """
         Function to train student model - for internal use only.
@@ -163,7 +164,7 @@ class BaseClass:
         :param epochs (int): Number of epochs you want to train the teacher
         :param plot_losses (bool): True if you want to plot the losses
         :param save_model (bool): True if you want to save the student model
-        :param save_model_pth (str): Path where you want to save the student model
+        :param save_model_path (str): Path where you want to save the student model
         """
         self.teacher_model.eval()
         self.student_model.train()
@@ -172,13 +173,13 @@ class BaseClass:
         best_acc = 0.0
         self.best_student_model_weights = deepcopy(self.student_model.state_dict())
 
-        save_dir = os.path.dirname(save_model_pth)
+        save_dir = os.path.dirname(save_model_path)
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
         print("Training Student...")
 
-        for ep in range(epochs):
+        for ep in tqdm(range(epochs), position=0):
             epoch_loss = 0.0
             correct = 0
 
@@ -206,7 +207,7 @@ class BaseClass:
 
             epoch_acc = correct / length_of_dataset
 
-            _, epoch_val_acc = self._evaluate_model(self.student_model, verbose=True)
+            epoch_val_acc = self.evaluate(teacher=False, verbose=False)
 
             if epoch_val_acc > best_acc:
                 best_acc = epoch_val_acc
@@ -220,11 +221,11 @@ class BaseClass:
                 self.writer.add_scalar("Accuracy/Validation student", epoch_val_acc, ep)
 
             loss_arr.append(epoch_loss)
-            print("Epoch: {}, Loss: {}, Accuracy: {}".format(ep+1, epoch_loss, epoch_acc))
+            print("Epoch: {}, Loss: {}, Accuracy: {}".format(ep, epoch_loss, epoch_acc))
 
         self.student_model.load_state_dict(self.best_student_model_weights)
         if save_model:
-            torch.save(self.student_model.state_dict(), save_model_pth)
+            torch.save(self.student_model.state_dict(), os.path.join(save_model_path, "student.pt"))
         if plot_losses:
             plt.plot(loss_arr)
 
@@ -233,7 +234,7 @@ class BaseClass:
         epochs=10,
         plot_losses=True,
         save_model=True,
-        save_model_pth="./models/student.pt",
+        save_model_path="./models/student.pt",
     ):
         """
         Function that will be training the student
@@ -241,9 +242,9 @@ class BaseClass:
         :param epochs (int): Number of epochs you want to train the teacher
         :param plot_losses (bool): True if you want to plot the losses
         :param save_model (bool): True if you want to save the student model
-        :param save_model_pth (str): Path where you want to save the student model
+        :param save_model_path (str): Path where you want to save the student model
         """
-        self._train_student(epochs, plot_losses, save_model, save_model_pth)
+        self._train_student(epochs, plot_losses, save_model, save_model_path)
 
     def calculate_kd_loss(self, y_pred_student, y_pred_teacher, y_true):
         """
@@ -289,7 +290,7 @@ class BaseClass:
             print("Validation Accuracy: {}".format(accuracy))
         return outputs, accuracy
 
-    def evaluate(self, teacher=False):
+    def evaluate(self, teacher=False, verbose=True):
         """
         Evaluate method for printing accuracies of the trained network
 
@@ -299,7 +300,7 @@ class BaseClass:
             model = deepcopy(self.teacher_model).to(self.device)
         else:
             model = deepcopy(self.student_model).to(self.device)
-        _, accuracy = self._evaluate_model(model)
+        _, accuracy = self._evaluate_model(model, verbose=verbose)
 
         return accuracy
 

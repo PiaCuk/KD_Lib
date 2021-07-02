@@ -70,7 +70,7 @@ def main(algo, runs, epochs, batch_size, save_path, use_adam=True):
         batch_size=batch_size,
         shuffle=True,
         pin_memory=True,
-        num_workers=14,
+        num_workers=16,
     )
 
     test_loader = torch.utils.data.DataLoader(
@@ -84,7 +84,7 @@ def main(algo, runs, epochs, batch_size, save_path, use_adam=True):
         batch_size=batch_size,
         shuffle=True,
         pin_memory=True,
-        num_workers=14,
+        num_workers=16,
     )
 
     # Set device to be trained on
@@ -107,12 +107,12 @@ def main(algo, runs, epochs, batch_size, save_path, use_adam=True):
             distiller.train_teacher(
                 epochs=epochs, plot_losses=False, save_model=False)
             distiller.train_student(
-                epochs=epochs, plot_losses=False, save_model=True, save_model_pth=run_path)
+                epochs=epochs, save_model=True, save_model_path=run_path, plot_losses=False)
 
 
 if __name__ == "__main__":
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-    # main("dml", 5, 100, 2048, "/data1/9cuk/kd_lib/session1", use_adam=True)
-    main("vanillla", 5, 100, 2048, "/data1/9cuk/kd_lib/session1", use_adam=True)
+    # main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session1", use_adam=True)
+    main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/session1", use_adam=True)
