@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch import Tensor
 from torchvision import datasets, transforms
 
-from KD_Lib.KD import DML
+from KD_Lib.KD import DML, DMLEnsemble
 from KD_Lib.models import Shallow, ResNet18
 
 
@@ -16,6 +16,7 @@ save_path = "/data1/9cuk/kd_lib/dml1"
 epochs = 100
 lr = 0.001
 batch_size = 512
+num_students = 2
 
 
 class CustomKLDivLoss(nn.Module):
@@ -59,13 +60,9 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Define models
 resnet_params = ([4, 4, 4, 4, 4], 1, 10)
-student1 = ResNet18(*resnet_params)
-student2 = ResNet18(*resnet_params)
-student_cohort = [student1, student2]
+student_cohort = [ResNet18(*resnet_params) for i in range(num_students)]
 
-student_optimizer1 = torch.optim.Adam(student1.parameters(), lr)
-student_optimizer2 = torch.optim.Adam(student2.parameters(), lr)
-student_optimizers = [student_optimizer1, student_optimizer2]
+student_optimizers = [torch.optim.Adam(student_cohort[i].parameters(), lr) for i in range(num_students)]
 
 # Define DML
 dml = DML(student_cohort, train_loader, test_loader,

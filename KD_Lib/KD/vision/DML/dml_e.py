@@ -72,7 +72,7 @@ class DMLEnsemble:
         for student in self.student_cohort:
             student.to(self.device)
     
-    def ensemble_target(logits_list, j):
+    def ensemble_target(self, logits_list, j):
         # Calculate ensemble target given a list of logits, omitting the j'th element
         num_logits = len(logits_list)
         ensemble_target = torch.zeros(logits_list[j].shape)
