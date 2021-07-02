@@ -80,7 +80,7 @@ class BaseClass:
         epochs=20,
         plot_losses=True,
         save_model=True,
-        save_model_pth="./models/teacher.pt",
+        save_model_path="./models/teacher.pt",
     ):
         """
         Function that will be training the teacher
@@ -88,7 +88,7 @@ class BaseClass:
         :param epochs (int): Number of epochs you want to train the teacher
         :param plot_losses (bool): True if you want to plot the losses
         :param save_model (bool): True if you want to save the teacher model
-        :param save_model_pth (str): Path where you want to store the teacher model
+        :param save_model_path (str): Path where you want to store the teacher model
         """
         self.teacher_model.train()
         loss_arr = []
@@ -96,7 +96,7 @@ class BaseClass:
         best_acc = 0.0
         self.best_teacher_model_weights = deepcopy(self.teacher_model.state_dict())
 
-        save_dir = os.path.dirname(save_model_pth)
+        save_dir = os.path.dirname(save_model_path)
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
@@ -146,7 +146,7 @@ class BaseClass:
 
         self.teacher_model.load_state_dict(self.best_teacher_model_weights)
         if save_model:
-            torch.save(self.teacher_model.state_dict(), save_model_pth)
+            torch.save(self.teacher_model.state_dict(), save_model_path)
         if plot_losses:
             plt.plot(loss_arr)
 
@@ -155,7 +155,7 @@ class BaseClass:
         epochs=10,
         plot_losses=True,
         save_model=True,
-        save_model_pth="./models/student.pt",
+        save_model_path="./models/student.pt",
     ):
         """
         Function to train student model - for internal use only.
@@ -163,7 +163,7 @@ class BaseClass:
         :param epochs (int): Number of epochs you want to train the teacher
         :param plot_losses (bool): True if you want to plot the losses
         :param save_model (bool): True if you want to save the student model
-        :param save_model_pth (str): Path where you want to save the student model
+        :param save_model_path (str): Path where you want to save the student model
         """
         self.teacher_model.eval()
         self.student_model.train()
@@ -172,7 +172,7 @@ class BaseClass:
         best_acc = 0.0
         self.best_student_model_weights = deepcopy(self.student_model.state_dict())
 
-        save_dir = os.path.dirname(save_model_pth)
+        save_dir = os.path.dirname(save_model_path)
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
@@ -224,7 +224,7 @@ class BaseClass:
 
         self.student_model.load_state_dict(self.best_student_model_weights)
         if save_model:
-            torch.save(self.student_model.state_dict(), save_model_pth)
+            torch.save(self.student_model.state_dict(), save_model_path)
         if plot_losses:
             plt.plot(loss_arr)
 
@@ -233,7 +233,7 @@ class BaseClass:
         epochs=10,
         plot_losses=True,
         save_model=True,
-        save_model_pth="./models/student.pt",
+        save_model_path="./models/student.pt",
     ):
         """
         Function that will be training the student
@@ -241,9 +241,9 @@ class BaseClass:
         :param epochs (int): Number of epochs you want to train the teacher
         :param plot_losses (bool): True if you want to plot the losses
         :param save_model (bool): True if you want to save the student model
-        :param save_model_pth (str): Path where you want to save the student model
+        :param save_model_path (str): Path where you want to save the student model
         """
-        self._train_student(epochs, plot_losses, save_model, save_model_pth)
+        self._train_student(epochs, plot_losses, save_model, save_model_path)
 
     def calculate_kd_loss(self, y_pred_student, y_pred_teacher, y_true):
         """

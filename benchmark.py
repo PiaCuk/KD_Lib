@@ -107,7 +107,7 @@ def main(algo, runs, epochs, batch_size, save_path, use_adam=True):
             distiller.train_teacher(
                 epochs=epochs, plot_losses=False, save_model=False)
             distiller.train_student(
-                epochs=epochs, plot_losses=False, save_model=True, save_model_pth=run_path)
+                epochs=epochs, plot_losses=False, save_model=False, save_model_path=run_path) # TODO Fix model saving
 
 
 if __name__ == "__main__":
@@ -115,4 +115,4 @@ if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
     # main("dml", 5, 100, 2048, "/data1/9cuk/kd_lib/session1", use_adam=True)
-    main("vanillla", 5, 100, 2048, "/data1/9cuk/kd_lib/session1", use_adam=True)
+    main("vanilla", 5, 100, 2048, "/data1/9cuk/kd_lib/session1", use_adam=True)
