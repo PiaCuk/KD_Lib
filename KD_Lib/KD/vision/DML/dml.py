@@ -171,7 +171,7 @@ class DML:
             if not os.path.isdir(save_model_path):
                 os.mkdir(save_model_path)
             torch.save(self.best_student.state_dict(), os.path.join(
-                save_model_path, ("student" + str(self.best_student_id) + ".pth")))
+                save_model_path, ("student" + str(self.best_student_id) + ".pt")))
         if plot_losses:
             plt.plot(loss_arr)
 
