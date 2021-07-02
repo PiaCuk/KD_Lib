@@ -161,7 +161,7 @@ class DML:
             if self.student_schedulers:
                 for i in range(num_students):
                     self.student_schedulers[i].step()
-                    if ep % 10 is 0:
+                    if ep % 10 == 0:
                         print(f"Epoch {ep}, Learning rate {self.student_schedulers[i].get_last_lr()}")
                         print(f"Epoch: {ep}, Loss: {epoch_loss}, Training accuracy: {epoch_acc}")
 
