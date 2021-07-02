@@ -22,6 +22,7 @@ class DML:
     :param device (str): Device used for training; 'cpu' for cpu and 'cuda' for gpu
     :param log (bool): True if logging required
     :param logdir (str): Directory for storing logs
+    :param use_scheduler(bool): True to decrease learning rate during training
     """
 
     def __init__(
