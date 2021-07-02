@@ -95,9 +95,9 @@ def main(algo, runs, epochs, batch_size, save_path, use_adam=True):
         print(f"Starting run {i}")
         run_path = os.path.join(save_path, algo + str(i).zfill(3))
         distiller = create_distiller(
-            algo, train_loader, test_loader, device, save_path=run_path, use_adam=use_adam)
+            algo, train_loader, test_loader, device, save_path=run_path, num_students=3, use_adam=use_adam)
 
-        if algo is "dml":
+        if algo is "dml" or "dml_e":
             # Run DML
             distiller.train_students(
                 epochs=epochs, save_model=True, save_model_path=run_path, plot_losses=False)
@@ -115,6 +115,6 @@ if __name__ == "__main__":
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-    # main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session1", use_adam=True)
-    # main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/session1", use_adam=True)
-    main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/session1", use_adam=True)
+    # main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session2", use_adam=True)
+    main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/session2", use_adam=True)
+    # main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/session1", use_adam=True)
