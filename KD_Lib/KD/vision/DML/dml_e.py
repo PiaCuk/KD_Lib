@@ -10,7 +10,7 @@ import os
 from tqdm import tqdm
 
 
-class DML_e:
+class DMLEnsemble:
     """
     Implementation of "Deep Mutual Learning with ensemble teacher" https://arxiv.org/abs/1706.00384
 
@@ -22,6 +22,7 @@ class DML_e:
     :param device (str): Device used for training; 'cpu' for cpu and 'cuda' for gpu
     :param log (bool): True if logging required
     :param logdir (str): Directory for storing logs
+    :param use_scheduler(bool): True to decrease learning rate during training
     """
 
     def __init__(

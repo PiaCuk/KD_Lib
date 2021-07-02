@@ -12,7 +12,7 @@ from .vision import (
     LabelSmoothReg,
     ProbShift,
     DML,
-    DML_e,
+    DMLEnsemble,
     BANN,
     CSKD,
     Attention,

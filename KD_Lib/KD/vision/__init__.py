@@ -7,6 +7,6 @@ from .RCO import RCO
 from .noisy import NoisyTeacher, SoftRandom, MessyCollab
 from .mean_teacher import MeanTeacher
 from .KA import LabelSmoothReg, ProbShift
-from .DML import DML, DML_e
+from .DML import DML, DMLEnsemble
 from .BANN import BANN
 from .attention import Attention
