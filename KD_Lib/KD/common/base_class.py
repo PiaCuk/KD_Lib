@@ -146,7 +146,7 @@ class BaseClass:
 
         self.teacher_model.load_state_dict(self.best_teacher_model_weights)
         if save_model:
-            torch.save(self.teacher_model.state_dict(), save_model_path)
+            torch.save(self.teacher_model.state_dict(), os.path.join(save_model_path, "teacher.pt"))
         if plot_losses:
             plt.plot(loss_arr)
 
@@ -224,7 +224,7 @@ class BaseClass:
 
         self.student_model.load_state_dict(self.best_student_model_weights)
         if save_model:
-            torch.save(self.student_model.state_dict(), save_model_path)
+            torch.save(self.student_model.state_dict(), os.path.join(save_model_path, "student.pt"))
         if plot_losses:
             plt.plot(loss_arr)
 

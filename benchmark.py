@@ -107,7 +107,7 @@ def main(algo, runs, epochs, batch_size, save_path, use_adam=True):
             distiller.train_teacher(
                 epochs=epochs, plot_losses=False, save_model=False)
             distiller.train_student(
-                epochs=epochs, plot_losses=False, save_model=False, save_model_path=run_path) # TODO Fix model saving
+                epochs=epochs, save_model=True, save_model_path=run_path, plot_losses=False)
 
 
 if __name__ == "__main__":
