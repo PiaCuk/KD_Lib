@@ -5,6 +5,7 @@ from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 from copy import deepcopy
 import os
+from tqdm import tqdm
 
 
 class BaseClass:
@@ -102,7 +103,7 @@ class BaseClass:
 
         print("Training Teacher... ")
 
-        for ep in range(epochs):
+        for ep in tqdm(range(epochs), position=0):
             epoch_loss = 0.0
             correct = 0
             for (data, label) in self.train_loader:
@@ -126,7 +127,7 @@ class BaseClass:
 
             epoch_acc = correct / length_of_dataset
 
-            epoch_val_acc = self.evaluate(teacher=True)
+            epoch_val_acc = self.evaluate(teacher=True, verbose=False)
 
             if epoch_val_acc > best_acc:
                 best_acc = epoch_val_acc
@@ -140,7 +141,7 @@ class BaseClass:
                 self.writer.add_scalar("Accuracy/Validation teacher", epoch_val_acc, ep)
 
             loss_arr.append(epoch_loss)
-            print("Epoch: {}, Loss: {}, Accuracy: {}".format(ep+1, epoch_loss, epoch_acc))
+            print("Epoch: {}, Loss: {}, Accuracy: {}".format(ep, epoch_loss, epoch_acc))
 
             self.post_epoch_call(ep)
 
@@ -178,7 +179,7 @@ class BaseClass:
 
         print("Training Student...")
 
-        for ep in range(epochs):
+        for ep in tqdm(range(epochs), position=0):
             epoch_loss = 0.0
             correct = 0
 
@@ -206,7 +207,7 @@ class BaseClass:
 
             epoch_acc = correct / length_of_dataset
 
-            _, epoch_val_acc = self._evaluate_model(self.student_model, verbose=True)
+            epoch_val_acc = self.evaluate(teacher=False, verbose=False)
 
             if epoch_val_acc > best_acc:
                 best_acc = epoch_val_acc
@@ -220,7 +221,7 @@ class BaseClass:
                 self.writer.add_scalar("Accuracy/Validation student", epoch_val_acc, ep)
 
             loss_arr.append(epoch_loss)
-            print("Epoch: {}, Loss: {}, Accuracy: {}".format(ep+1, epoch_loss, epoch_acc))
+            print("Epoch: {}, Loss: {}, Accuracy: {}".format(ep, epoch_loss, epoch_acc))
 
         self.student_model.load_state_dict(self.best_student_model_weights)
         if save_model:
@@ -289,7 +290,7 @@ class BaseClass:
             print("Validation Accuracy: {}".format(accuracy))
         return outputs, accuracy
 
-    def evaluate(self, teacher=False):
+    def evaluate(self, teacher=False, verbose=True):
         """
         Evaluate method for printing accuracies of the trained network
 
@@ -299,7 +300,7 @@ class BaseClass:
             model = deepcopy(self.teacher_model).to(self.device)
         else:
             model = deepcopy(self.student_model).to(self.device)
-        _, accuracy = self._evaluate_model(model)
+        _, accuracy = self._evaluate_model(model, verbose=verbose)
 
         return accuracy
 
