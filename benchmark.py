@@ -6,7 +6,7 @@ from torch import Tensor
 from torchvision import datasets, transforms
 
 from KD_Lib.KD import VanillaKD, DML, DMLEnsemble
-from KD_Lib.models import Shallow, ResNet18
+from KD_Lib.models import Shallow, ResNet18, ResNet50
 
 
 class CustomKLDivLoss(nn.Module):
@@ -30,24 +30,28 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
             return torch.optim.SGD(params, 0.1, momentum=0.9, weight_decay=0.0001)
 
     resnet_params = ([4, 4, 4, 4, 4], 1, 10)
-    if algo is "dml":
+    if algo == "dml":
         # Define models
-        student_cohort = [ResNet18(*resnet_params) for i in range(num_students)]
+        # student_cohort = [ResNet18(*resnet_params) for i in range(num_students)]
+        # TODO change this back
+        student_cohort = [ResNet50(*resnet_params), ResNet18(*resnet_params)]
         student_optimizers = [_create_optim(student_cohort[i].parameters(), adam=use_adam) for i in range(num_students)]
         # Define DML with logging to Tensorboard
         distiller = DML(student_cohort, train_loader, test_loader, student_optimizers,
                         loss_fn=loss_fn, log=True, logdir=save_path, device=device, use_scheduler=True)
     
-    elif algo is "dml_e":
+    elif algo == "dml_e":
         # Define models
-        student_cohort = [ResNet18(*resnet_params) for i in range(num_students)]
+        # student_cohort = [ResNet18(*resnet_params) for i in range(num_students)]
+        # TODO change this back
+        student_cohort = [ResNet50(*resnet_params), ResNet18(*resnet_params)]
         student_optimizers = [_create_optim(student_cohort[i].parameters(), adam=use_adam) for i in range(num_students)]
         # Define DML with ensemble teacher with logging to Tensorboard
         distiller = DMLEnsemble(student_cohort, train_loader, test_loader, student_optimizers,
                         loss_fn=loss_fn, log=True, logdir=save_path, device=device, use_scheduler=True)
 
     else:
-        teacher = ResNet18(*resnet_params)
+        teacher = ResNet50(*resnet_params)
         student = ResNet18(*resnet_params)
 
         teacher_optimizer = _create_optim(teacher.parameters(), adam=use_adam)
@@ -58,7 +62,7 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
     return distiller
 
 
-def main(algo, runs, epochs, batch_size, save_path, use_adam=True):
+def main(algo, runs, epochs, batch_size, save_path, num_students=2, use_adam=True):
     train_loader = torch.utils.data.DataLoader(
         datasets.FashionMNIST(
             "FashionMNIST",
@@ -95,9 +99,15 @@ def main(algo, runs, epochs, batch_size, save_path, use_adam=True):
         print(f"Starting run {i}")
         run_path = os.path.join(save_path, algo + str(i).zfill(3))
         distiller = create_distiller(
-            algo, train_loader, test_loader, device, save_path=run_path, num_students=3, use_adam=use_adam)
+            algo, train_loader, test_loader, device, save_path=run_path, num_students=num_students, use_adam=use_adam)
 
-        if algo is "dml" or "dml_e":
+        if algo == "vanilla":
+            distiller.train_teacher(
+                epochs=epochs, plot_losses=False, save_model=False)
+            distiller.train_student(
+                epochs=epochs, save_model=True, save_model_path=run_path, plot_losses=False)
+        if algo == "dml" or algo == "dml_e":
+            print("Using " + algo)
             # Run DML
             distiller.train_students(
                 epochs=epochs, save_model=True, save_model_path=run_path, plot_losses=False)
@@ -105,16 +115,13 @@ def main(algo, runs, epochs, batch_size, save_path, use_adam=True):
             # Not needed here, as we log it at the end of each epoch
             # distiller.evaluate()
         else:
-            distiller.train_teacher(
-                epochs=epochs, plot_losses=False, save_model=False)
-            distiller.train_student(
-                epochs=epochs, save_model=True, save_model_path=run_path, plot_losses=False)
+            print("No matching distiller algorithm found.")
 
 
 if __name__ == "__main__":
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-    # main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session2", use_adam=True)
-    main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/session2", use_adam=True)
-    # main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/session1", use_adam=True)
+    main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session3")
+    main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/session3")
+    # main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/session3")
