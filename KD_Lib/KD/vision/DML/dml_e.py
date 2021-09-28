@@ -127,8 +127,14 @@ class DMLEnsemble:
                     # Calculate ensemble target
                     target = self.ensemble_target(student_outputs, i)
                     student_loss += self.loss_fn(student_outputs[i], target.detach())
+                    supervised_loss = F.cross_entropy(student_outputs[i], label)
 
-                    student_loss += F.cross_entropy(student_outputs[i], label)
+                    if self.log:
+                        self.writer.add_scalar("Loss/Cross-entropy student"+str(i), supervised_loss, ep)
+                        self.writer.add_scalar("Loss/Divergence student"+str(i), student_loss, ep)
+                        # TODO entropy of student_outputs[i]
+                    
+                    student_loss += supervised_loss
                     student_loss.backward()
                     self.student_optimizers[i].step()
 
@@ -142,11 +148,12 @@ class DMLEnsemble:
                         predictions[i].eq(label.view_as(predictions[i])).sum().item()
                     )
 
-                correct += max(correct_preds)
+                correct += sum(correct_preds) / len(correct_preds)
 
                 epoch_loss += avg_student_loss
 
             epoch_acc = correct / length_of_dataset
+            # TODO log training accuracy for each student separately
 
             for student_id, student in enumerate(self.student_cohort):
                 _, epoch_val_acc = self._evaluate_model(student, verbose=False)
@@ -161,17 +168,18 @@ class DMLEnsemble:
                     self.writer.add_scalar("Accuracy/Validation student"+str(student_id), epoch_val_acc, ep)
 
             if self.log:
-                self.writer.add_scalar("Loss/Train", epoch_loss, ep)
-                self.writer.add_scalar("Accuracy/Train", epoch_acc, ep)
+                self.writer.add_scalar("Loss/Train average", epoch_loss, ep)
+                self.writer.add_scalar("Accuracy/Train average", epoch_acc, ep)
 
             loss_arr.append(epoch_loss)
             
             if self.student_schedulers:
                 for i in range(num_students):
                     self.student_schedulers[i].step()
-                    if ep % 10 == 0:
-                        print(f"Epoch {ep}, Learning rate {self.student_schedulers[i].get_last_lr()}")
-                        print(f"Epoch: {ep}, Loss: {epoch_loss}, Training accuracy: {epoch_acc}")
+                
+                if ep % 10 == 0:
+                    print(f"Epoch {ep}, Learning rate {self.student_schedulers[i].get_last_lr()}")
+                    print(f"Epoch: {ep}, Loss: {epoch_loss}, Training accuracy: {epoch_acc}")
 
         self.best_student.load_state_dict(self.best_student_model_weights)
         if save_model:
