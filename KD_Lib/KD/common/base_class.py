@@ -60,12 +60,11 @@ class BaseClass:
         elif device.type == "cuda":
             if torch.cuda.is_available():
                 self.device = torch.device("cuda")
-                print("Device is set to CUDA.")
-        else:
-            print(
-                "Either an invalid device or CUDA is not available. Defaulting to CPU."
-            )
-            self.device = torch.device("cpu")
+            else:
+                print(
+                    "Either an invalid device or CUDA is not available. Defaulting to CPU."
+                )
+                self.device = torch.device("cpu")
 
         if teacher_model:
             self.teacher_model = teacher_model.to(self.device)
@@ -141,7 +140,11 @@ class BaseClass:
                 self.writer.add_scalar("Accuracy/Validation teacher", epoch_val_acc, ep)
 
             loss_arr.append(epoch_loss)
-            print("Epoch: {}, Loss: {}, Accuracy: {}".format(ep, epoch_loss, epoch_acc))
+            print(
+                "Epoch: {}, Loss: {}, Accuracy: {}".format(
+                    ep + 1, epoch_loss, epoch_acc
+                )
+            )
 
             self.post_epoch_call(ep)
 
@@ -221,7 +224,11 @@ class BaseClass:
                 self.writer.add_scalar("Accuracy/Validation student", epoch_val_acc, ep)
 
             loss_arr.append(epoch_loss)
-            print("Epoch: {}, Loss: {}, Accuracy: {}".format(ep, epoch_loss, epoch_acc))
+            print(
+                "Epoch: {}, Loss: {}, Accuracy: {}".format(
+                    ep + 1, epoch_loss, epoch_acc
+                )
+            )
 
         self.student_model.load_state_dict(self.best_student_model_weights)
         if save_model:
