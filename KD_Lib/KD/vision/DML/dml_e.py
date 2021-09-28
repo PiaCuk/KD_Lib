@@ -133,6 +133,12 @@ class DMLEnsemble:
                         self.writer.add_scalar("Loss/Cross-entropy student"+str(i), supervised_loss, ep)
                         self.writer.add_scalar("Loss/Divergence student"+str(i), student_loss, ep)
                         # TODO entropy of student_outputs[i]
+                        student_entropy = 0
+                        for i in student_outputs[i]:
+                            # log_(2) for entropy to be in bits
+                            student_entropy += i * torch.log2(i)
+                        student_entropy *= -1
+                        self.writer.add_scalar("Loss/Entropy student"+str(i), student_entropy, ep)
                     
                     student_loss += supervised_loss
                     student_loss.backward()
