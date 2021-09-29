@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch import Tensor
 from torchvision import datasets, transforms
 
-from KD_Lib.KD import VanillaKD, DML, DMLEnsemble
+from KD_Lib.KD import VanillaKD, DML
 from KD_Lib.models import Shallow, ResNet18, ResNet50
 
 
@@ -30,26 +30,16 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
             return torch.optim.SGD(params, 0.1, momentum=0.9, weight_decay=0.0001)
 
     resnet_params = ([4, 4, 4, 4, 4], 1, 10)
-    if algo == "dml":
+    if algo == "dml" or algo == "dml_e":
         # Define models
         # student_cohort = [ResNet18(*resnet_params) for i in range(num_students)]
         # TODO change this back
-        student_cohort = [ResNet50(*resnet_params), ResNet18(*resnet_params)]
+        student_cohort = [ResNet50(*resnet_params), ResNet18(*resnet_params), ResNet18(*resnet_params)]
         student_optimizers = [_create_optim(student_cohort[i].parameters(), adam=use_adam) for i in range(num_students)]
         # Define DML with logging to Tensorboard
         distiller = DML(student_cohort, train_loader, test_loader, student_optimizers,
-                        loss_fn=loss_fn, log=True, logdir=save_path, device=device, use_scheduler=True)
-    
-    elif algo == "dml_e":
-        # Define models
-        # student_cohort = [ResNet18(*resnet_params) for i in range(num_students)]
-        # TODO change this back
-        student_cohort = [ResNet50(*resnet_params), ResNet18(*resnet_params)]
-        student_optimizers = [_create_optim(student_cohort[i].parameters(), adam=use_adam) for i in range(num_students)]
-        # Define DML with ensemble teacher with logging to Tensorboard
-        distiller = DMLEnsemble(student_cohort, train_loader, test_loader, student_optimizers,
-                        loss_fn=loss_fn, log=True, logdir=save_path, device=device, use_scheduler=True)
-
+                        loss_fn=loss_fn, log=True, logdir=save_path, device=device, use_scheduler=True,
+                        use_ensemble=True if algo=="dml_e" else False)
     else:
         teacher = ResNet50(*resnet_params)
         student = ResNet18(*resnet_params)
@@ -111,9 +101,6 @@ def main(algo, runs, epochs, batch_size, save_path, num_students=2, use_adam=Tru
             # Run DML
             distiller.train_students(
                 epochs=epochs, save_model=True, save_model_path=run_path, plot_losses=False)
-            # Evaluate students
-            # Not needed here, as we log it at the end of each epoch
-            # distiller.evaluate()
         else:
             print("No matching distiller algorithm found.")
 
@@ -122,6 +109,6 @@ if __name__ == "__main__":
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-    main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session3")
-    main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/session3")
+    # main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session4_1", num_students=3)
+    main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/session4_1", num_students=3)
     # main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/session3")
