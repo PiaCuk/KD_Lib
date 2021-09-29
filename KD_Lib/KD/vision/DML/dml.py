@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
+from torch.distributions.categorical import Categorical
 
 import matplotlib.pyplot as plt
 from copy import deepcopy
@@ -35,7 +36,8 @@ class DML:
         device="cpu",
         log=False,
         logdir="./Experiments",
-        use_scheduler=True
+        use_scheduler=True,
+        use_ensemble=True
     ):
 
         self.student_cohort = student_cohort
@@ -46,6 +48,10 @@ class DML:
         self.log = log
         self.logdir = logdir
         self.student_schedulers = []
+        self.use_ensemble = use_ensemble
+
+        if self.use_ensemble:
+            print("Using ensemble target for divergence loss.")
 
         if self.log:
             self.writer = SummaryWriter(logdir)
@@ -71,6 +77,15 @@ class DML:
         
         for student in self.student_cohort:
             student.to(self.device)
+    
+    def ensemble_target(self, logits_list, j):
+        # Calculate ensemble target given a list of logits, omitting the j'th element
+        num_logits = len(logits_list)
+        ensemble_target = torch.zeros(logits_list[j].shape).to(self.device)
+        for i, logits in enumerate(logits_list):
+            if i != j:
+                ensemble_target += (1 / (num_logits - 1)) * F.softmax(logits, dim=-1)
+        return ensemble_target
 
     def train_students(
         self,
@@ -79,7 +94,6 @@ class DML:
         save_model=True,
         save_model_path="./Experiments",
     ):
-
         for student in self.student_cohort:
             student.train()
 
@@ -97,8 +111,13 @@ class DML:
         for ep in tqdm(range(epochs), position=0):
             epoch_loss = 0.0
             correct = 0
+            cohort_ce_loss = [0 for s in range(num_students)]
+            cohort_divergence = [0 for s in range(num_students)]
+            cohort_entropy = [0 for s in range(num_students)]
 
-            for (data, label) in tqdm(self.train_loader, total=int(len(self.train_loader.dataset) / self.train_loader.batch_size), position=1):
+            epoch_len = int(len(self.train_loader.dataset) / self.train_loader.batch_size)
+
+            for (data, label) in tqdm(self.train_loader, total=epoch_len, position=1):
 
                 data = data.to(self.device)
                 label = label.to(self.device)
@@ -113,27 +132,34 @@ class DML:
                     student_outputs.append(logits)
 
                 avg_student_loss = 0
-
+                
                 for i in range(num_students):
                     student_loss = 0
-                    for j in range(num_students):
-                        if i == j:
-                            continue
-                        else:
-                            student_loss += (1 / (num_students - 1)) * self.loss_fn(
-                                student_outputs[i], student_outputs[j].detach())
+                    if self.use_ensemble:
+                        # Calculate ensemble target
+                        target = self.ensemble_target(student_outputs, i)
+                        student_loss += self.loss_fn(student_outputs[i], target.detach())
+                    else:
+                        # Calculate pairwise divergence
+                        for j in range(num_students):
+                            if i == j:
+                                continue
+                            else:
+                                student_loss += (1 / (num_students - 1)) * self.loss_fn(
+                                    student_outputs[i], student_outputs[j].detach())
 
-                    supervised_loss = F.cross_entropy(student_outputs[i], label)
+                    ce_loss = F.cross_entropy(student_outputs[i], label)
 
-                    if self.log:
-                        self.writer.add_scalar("Loss/Cross-entropy student"+str(i), supervised_loss, ep)
-                        self.writer.add_scalar("Loss/Divergence student"+str(i), student_loss, ep)
-                        # TODO entropy of student_outputs[i]
-                        prob_dist = torch.softmax(student_outputs[i], dim=-1).mean()
-                        student_entropy = -(prob_dist * prob_dist.log()).sum()
-                        self.writer.add_scalar("Loss/Entropy student"+str(i), student_entropy, ep)
-                        
-                    student_loss += supervised_loss
+                    # Running average of both loss summands
+                    cohort_ce_loss[i] += (1 / epoch_len) * ce_loss
+                    cohort_divergence[i] += (1 / epoch_len) * student_loss
+
+                    # Running average of output entropy
+                    output_distribution = Categorical(logits=student_outputs[i])
+                    entropy = output_distribution.entropy().mean(dim=0)
+                    cohort_entropy[i] += (1 / epoch_len) * entropy
+                     
+                    student_loss += ce_loss
                     student_loss.backward()
                     self.student_optimizers[i].step()
 
@@ -165,6 +191,9 @@ class DML:
                 
                 if self.log:
                     self.writer.add_scalar("Accuracy/Validation student"+str(student_id), epoch_val_acc, ep)
+                    self.writer.add_scalar("Loss/Cross-entropy student"+str(student_id), cohort_ce_loss[student_id], ep)
+                    self.writer.add_scalar("Loss/Divergence student"+str(student_id), cohort_divergence[student_id], ep)
+                    self.writer.add_scalar("Loss/Entropy student"+str(student_id), cohort_entropy[student_id], ep)
 
             if self.log:
                 self.writer.add_scalar("Loss/Train average", epoch_loss, ep)

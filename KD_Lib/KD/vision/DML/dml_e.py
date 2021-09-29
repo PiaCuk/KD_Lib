@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
+from torch.distributions.categorical import Categorical
 
 import matplotlib.pyplot as plt
 from copy import deepcopy
@@ -105,8 +106,13 @@ class DMLEnsemble:
         for ep in tqdm(range(epochs), position=0):
             epoch_loss = 0.0
             correct = 0
+            cohort_ce_loss = [0 for s in range(num_students)]
+            cohort_divergence = [0 for s in range(num_students)]
+            cohort_entropy = [0 for s in range(num_students)]
 
-            for (data, label) in tqdm(self.train_loader, total=int(len(self.train_loader.dataset) / self.train_loader.batch_size), position=1):
+            epoch_len = int(len(self.train_loader.dataset) / self.train_loader.batch_size)
+
+            for (data, label) in tqdm(self.train_loader, total=epoch_len, position=1):
 
                 data = data.to(self.device)
                 label = label.to(self.device)
@@ -127,14 +133,18 @@ class DMLEnsemble:
                     # Calculate ensemble target
                     target = self.ensemble_target(student_outputs, i)
                     student_loss += self.loss_fn(student_outputs[i], target.detach())
-                    supervised_loss = F.cross_entropy(student_outputs[i], label)
+                    ce_loss = F.cross_entropy(student_outputs[i], label)
 
-                    if self.log:
-                        self.writer.add_scalar("Loss/Cross-entropy student"+str(i), supervised_loss, ep)
-                        self.writer.add_scalar("Loss/Divergence student"+str(i), student_loss, ep)
-                        # TODO entropy of student_outputs[i]
-                    
-                    student_loss += supervised_loss
+                    # running average of both loss summands
+                    cohort_ce_loss[i] += (1 / epoch_len) * ce_loss
+                    cohort_divergence[i] += (1 / epoch_len) * student_loss
+
+                    # running average of output entropy
+                    output_distribution = Categorical(logits=student_outputs[i])
+                    entropy = output_distribution.entropy().mean(dim=0)
+                    cohort_entropy[i] += (1 / epoch_len) * entropy
+                     
+                    student_loss += ce_loss
                     student_loss.backward()
                     self.student_optimizers[i].step()
 
@@ -166,6 +176,9 @@ class DMLEnsemble:
                 
                 if self.log:
                     self.writer.add_scalar("Accuracy/Validation student"+str(student_id), epoch_val_acc, ep)
+                    self.writer.add_scalar("Loss/Cross-entropy student"+str(student_id), cohort_ce_loss[student_id], ep)
+                    self.writer.add_scalar("Loss/Divergence student"+str(student_id), cohort_divergence[student_id], ep)
+                    self.writer.add_scalar("Loss/Entropy student"+str(student_id), cohort_entropy[student_id], ep)
 
             if self.log:
                 self.writer.add_scalar("Loss/Train average", epoch_loss, ep)
@@ -187,7 +200,7 @@ class DMLEnsemble:
             if not os.path.isdir(save_model_path):
                 os.mkdir(save_model_path)
             torch.save(self.best_student.state_dict(), os.path.join(
-                save_model_path, ("student" + str(self.best_student_id) + ".pth")))
+                save_model_path, ("student" + str(self.best_student_id) + ".pt")))
         if plot_losses:
             plt.plot(loss_arr)
 
