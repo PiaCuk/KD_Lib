@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
+from torch.distributions.categorical import Categorical
 
 import matplotlib.pyplot as plt
 from copy import deepcopy
 import os
 from tqdm import tqdm
+import statistics as s
 
 
 class BaseClass:
@@ -185,6 +187,9 @@ class BaseClass:
         for ep in tqdm(range(epochs), position=0):
             epoch_loss = 0.0
             correct = 0
+            student_ce_loss = []
+            student_divergence = []
+            student_entropy = []
 
             for (data, label) in self.train_loader:
 
@@ -195,6 +200,15 @@ class BaseClass:
                 teacher_out = self.teacher_model(data)
 
                 loss = self.calculate_kd_loss(student_out, teacher_out, label)
+                
+                if isinstance(loss, tuple):
+                    loss, ce_loss, divergence = loss
+                    student_ce_loss.append(ce_loss)
+                    student_divergence.append(divergence)
+                
+                out_dist = Categorical(logits=student_out)
+                entropy = out_dist.entropy().mean(dim=0)
+                student_entropy.append(entropy)
 
                 if isinstance(student_out, tuple):
                     student_out = student_out[0]
@@ -222,6 +236,9 @@ class BaseClass:
                 self.writer.add_scalar("Loss/Train student", epoch_loss, ep)
                 self.writer.add_scalar("Accuracy/Train student", epoch_acc, ep)
                 self.writer.add_scalar("Accuracy/Validation student", epoch_val_acc, ep)
+                self.writer.add_scalar("Loss/Cross-entropy student", s.mean(student_ce_loss), ep)
+                self.writer.add_scalar("Loss/Divergence student", s.mean(student_divergence), ep)
+                self.writer.add_scalar("Loss/Entropy student", s.mean(student_entropy), ep)
 
             loss_arr.append(epoch_loss)
             print(
