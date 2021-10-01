@@ -84,7 +84,7 @@ class DML:
         ensemble_target = torch.zeros(logits_list[j].shape).to(self.device)
         for i, logits in enumerate(logits_list):
             if i != j:
-                ensemble_target += (1 / (num_logits - 1)) * F.softmax(logits, dim=-1)
+                ensemble_target += (1 / (num_logits - 1)) * logits
         return ensemble_target
 
     def train_students(
@@ -136,8 +136,9 @@ class DML:
                 for i in range(num_students):
                     student_loss = 0
                     if self.use_ensemble:
-                        # Calculate ensemble target
+                        # Calculate ensemble target w/o applying softmax here
                         target = self.ensemble_target(student_outputs, i)
+                        # Softmax should be applied in loss_fn
                         student_loss += self.loss_fn(student_outputs[i], target.detach())
                     else:
                         # Calculate pairwise divergence
