@@ -32,9 +32,9 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
     resnet_params = ([4, 4, 4, 4, 4], 1, 10)
     if algo == "dml" or algo == "dml_e":
         # Define models
-        # student_cohort = [ResNet18(*resnet_params) for i in range(num_students)]
-        # TODO change this back
-        student_cohort = [ResNet50(*resnet_params), ResNet18(*resnet_params), ResNet18(*resnet_params)]
+        student_cohort = [ResNet18(*resnet_params) for i in range(num_students)]
+        # student_cohort = [ResNet50(*resnet_params), ResNet18(*resnet_params), ResNet18(*resnet_params)]
+        
         student_optimizers = [_create_optim(student_cohort[i].parameters(), adam=use_adam) for i in range(num_students)]
         # Define DML with logging to Tensorboard
         distiller = DML(student_cohort, train_loader, test_loader, student_optimizers,
@@ -109,6 +109,6 @@ if __name__ == "__main__":
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-    # main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session4_1", num_students=3)
-    main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/session4_1", num_students=3)
+    main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session2_1", num_students=3)
+    main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/session2_1", num_students=3)
     # main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/session3")
