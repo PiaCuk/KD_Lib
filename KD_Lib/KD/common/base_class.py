@@ -203,12 +203,12 @@ class BaseClass:
                 
                 if isinstance(loss, tuple):
                     loss, ce_loss, divergence = loss
-                    student_ce_loss.append(ce_loss)
-                    student_divergence.append(divergence)
+                    student_ce_loss.append(ce_loss.item())
+                    student_divergence.append(divergence.item())
                 
                 out_dist = Categorical(logits=student_out)
                 entropy = out_dist.entropy().mean(dim=0)
-                student_entropy.append(entropy)
+                student_entropy.append(entropy.item())
 
                 if isinstance(student_out, tuple):
                     student_out = student_out[0]
