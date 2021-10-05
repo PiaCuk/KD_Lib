@@ -1,4 +1,6 @@
 import os
+import random
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,6 +9,9 @@ from torchvision import datasets, transforms
 
 from KD_Lib.KD import VanillaKD, DML
 from KD_Lib.models import Shallow, ResNet18, ResNet50
+
+
+torch.manual_seed(51015)
 
 
 class CustomKLDivLoss(nn.Module):
@@ -32,14 +37,16 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
     resnet_params = ([4, 4, 4, 4, 4], 1, 10)
     if algo == "dml" or algo == "dml_e":
         # Define models
-        student_cohort = [ResNet18(*resnet_params) for i in range(num_students)]
+        student_cohort = [ResNet18(*resnet_params)
+                          for i in range(num_students)]
         # student_cohort = [ResNet50(*resnet_params), ResNet18(*resnet_params), ResNet18(*resnet_params)]
-        
-        student_optimizers = [_create_optim(student_cohort[i].parameters(), adam=use_adam) for i in range(num_students)]
+
+        student_optimizers = [_create_optim(
+            student_cohort[i].parameters(), adam=use_adam) for i in range(num_students)]
         # Define DML with logging to Tensorboard
         distiller = DML(student_cohort, train_loader, test_loader, student_optimizers,
                         loss_fn=loss_fn, log=True, logdir=save_path, device=device, use_scheduler=True,
-                        use_ensemble=True if algo=="dml_e" else False)
+                        use_ensemble=True if algo == "dml_e" else False)
     else:
         teacher = ResNet50(*resnet_params)
         student = ResNet18(*resnet_params)
@@ -52,7 +59,17 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
     return distiller
 
 
+def seed_worker(worker_id):
+    # from https://pytorch.org/docs/stable/notes/randomness.html
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+
 def main(algo, runs, epochs, batch_size, save_path, num_students=2, use_adam=True):
+    g = torch.Generator()
+    g.manual_seed(torch.initial_seed())
+
     train_loader = torch.utils.data.DataLoader(
         datasets.FashionMNIST(
             "FashionMNIST",
@@ -66,6 +83,8 @@ def main(algo, runs, epochs, batch_size, save_path, num_students=2, use_adam=Tru
         shuffle=True,
         pin_memory=True,
         num_workers=16,
+        worker_init_fn=seed_worker,
+        generator=g,
     )
 
     test_loader = torch.utils.data.DataLoader(
@@ -80,6 +99,8 @@ def main(algo, runs, epochs, batch_size, save_path, num_students=2, use_adam=Tru
         shuffle=True,
         pin_memory=True,
         num_workers=16,
+        worker_init_fn=seed_worker,
+        generator=g,
     )
 
     # Set device to be trained on
@@ -96,7 +117,7 @@ def main(algo, runs, epochs, batch_size, save_path, num_students=2, use_adam=Tru
                 epochs=epochs, plot_losses=False, save_model=False)
             distiller.train_student(
                 epochs=epochs, save_model=True, save_model_path=run_path, plot_losses=False)
-        if algo == "dml" or algo == "dml_e":
+        elif algo == "dml" or algo == "dml_e":
             print("Using " + algo)
             # Run DML
             distiller.train_students(
@@ -109,6 +130,6 @@ if __name__ == "__main__":
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-    main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session2_1", num_students=3)
-    main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/session2_1", num_students=3)
-    # main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/session3")
+    main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session2_2", num_students=3)
+    # main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/session2_2", num_students=3)
+    # main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/session3_2")
