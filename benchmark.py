@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch import Tensor
 from torchvision import datasets, transforms
 
-from KD_Lib.KD import VanillaKD, DML
+from KD_Lib.KD import VanillaKD, DML, VirtualTeacher
 from KD_Lib.models import Shallow, ResNet18, ResNet50
 
 
@@ -62,9 +62,9 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
     resnet_params = ([4, 4, 4, 4, 4], 1, 10)
     if algo == "dml" or algo == "dml_e":
         # Define models
-        student_cohort = [ResNet18(*resnet_params)
-                          for i in range(num_students)]
-        # student_cohort = [ResNet50(*resnet_params), ResNet18(*resnet_params), ResNet18(*resnet_params)]
+        # student_cohort = [ResNet18(*resnet_params) for i in range(num_students)]
+        student_cohort = [
+            ResNet50(*resnet_params), ResNet18(*resnet_params), ResNet18(*resnet_params)]
 
         student_optimizers = [_create_optim(
             student_cohort[i].parameters(), adam=use_adam) for i in range(num_students)]
@@ -72,6 +72,13 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
         distiller = DML(student_cohort, train_loader, test_loader, student_optimizers,
                         loss_fn=loss_fn, log=True, logdir=save_path, device=device, use_scheduler=True,
                         use_ensemble=True if algo == "dml_e" else False)
+    elif algo == "tfkd":
+        student = ResNet18(*resnet_params)
+        student_optimizer = _create_optim(student.parameters(), adam=use_adam)
+        # Define TfKD with logging to Tensorboard
+        # Note that we need to use Pytorch's KLD here, due to the implementation of TfKD in KD-Lib
+        distiller = VirtualTeacher(student, train_loader, test_loader, student_optimizer,
+                                   loss_fn=nn.KLDivLoss(), log=True, logdir=save_path, device=device)
     else:
         teacher = ResNet50(*resnet_params)
         student = ResNet18(*resnet_params)
@@ -151,26 +158,27 @@ def main(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), n
         distiller = create_distiller(
             algo, train_loader, test_loader, device, save_path=run_path, loss_fn=loss_fn, num_students=num_students, use_adam=use_adam)
 
-        if algo == "vanilla":
-            distiller.train_teacher(
-                epochs=epochs, plot_losses=False, save_model=False)
-            distiller.train_student(
-                epochs=epochs, save_model=True, save_model_path=run_path, plot_losses=False)
-        elif algo == "dml" or algo == "dml_e":
+        if algo == "dml" or algo == "dml_e":
             print("Using " + algo)
             # Run DML
             distiller.train_students(
                 epochs=epochs, save_model=True, save_model_path=run_path, plot_losses=False)
+        elif algo == "tfkd":
+            distiller.train_student(
+                epochs=epochs, plot_losses=False, save_model=True, save_model_path=run_path)
         else:
-            print("No matching distiller algorithm found.")
+            distiller.train_teacher(
+                epochs=epochs, plot_losses=False, save_model=False)
+            distiller.train_student(
+                epochs=epochs, plot_losses=False, save_model=True, save_model_path=run_path)
 
 
 if __name__ == "__main__":
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-    main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session5",
+    main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session6",
          loss_fn=SoftKLDivLoss(), num_students=3)
-    main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/session5",
+    main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/session6",
          loss_fn=SoftKLDivLoss(), num_students=3)
     # main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/session3_3")
