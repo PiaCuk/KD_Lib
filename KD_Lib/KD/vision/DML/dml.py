@@ -116,8 +116,7 @@ class DML:
             cohort_divergence = [0 for s in range(num_students)]
             cohort_entropy = [0 for s in range(num_students)]
 
-            epoch_len = int(len(self.train_loader.dataset) /
-                            self.train_loader.batch_size)
+            epoch_len = int(length_of_dataset / self.train_loader.batch_size)
 
             for (data, label) in tqdm(self.train_loader, total=epoch_len, position=1):
 
