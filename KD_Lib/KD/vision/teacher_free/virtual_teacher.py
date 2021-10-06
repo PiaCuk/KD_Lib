@@ -1,11 +1,14 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
+from torch.distributions.categorical import Categorical
 
 import matplotlib.pyplot as plt
 from copy import deepcopy
+import os
+from tqdm import tqdm
+import statistics as s
 
 
 class VirtualTeacher:
@@ -70,7 +73,7 @@ class VirtualTeacher:
         epochs=10,
         plot_losses=True,
         save_model=True,
-        save_model_pth="./models/student.pth",
+        save_model_path="./models/student.pt",
     ):
         """
         Function that will be training the student
@@ -87,13 +90,22 @@ class VirtualTeacher:
         best_acc = 0.0
         self.best_student_model_weights = deepcopy(self.student_model.state_dict())
 
+        save_dir = os.path.dirname(save_model_path)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+
         print("\nTraining student...")
 
-        for ep in range(epochs):
+        for ep in tqdm(range(epochs), position=0):
             epoch_loss = 0.0
             correct = 0
+            student_ce_loss = []
+            student_divergence = []
+            student_entropy = []
 
-            for (data, label) in self.train_loader:
+            epoch_len = int(length_of_dataset / self.train_loader.batch_size)
+
+            for (data, label) in tqdm(self.train_loader, total=epoch_len, position=1):
 
                 data = data.to(self.device)
                 label = label.to(self.device)
@@ -102,8 +114,17 @@ class VirtualTeacher:
 
                 loss = self.calculate_kd_loss(student_out, label)
 
+                if isinstance(loss, tuple):
+                    loss, ce_loss, divergence = loss
+                    student_ce_loss.append(ce_loss.item())
+                    student_divergence.append(divergence.item())
+
                 if isinstance(student_out, tuple):
                     student_out = student_out[0]
+                
+                out_dist = Categorical(logits=student_out)
+                entropy = out_dist.entropy().mean(dim=0)
+                student_entropy.append(entropy.item())
 
                 pred = student_out.argmax(dim=1, keepdim=True)
                 correct += pred.eq(label.view_as(pred)).sum().item()
@@ -125,18 +146,23 @@ class VirtualTeacher:
                 )
 
             if self.log:
-                self.writer.add_scalar("Training loss/Student", epoch_loss, epochs)
-                self.writer.add_scalar("Training accuracy/Student", epoch_acc, epochs)
-                self.writer.add_scalar(
-                    "Validation accuracy/Student", epoch_val_acc, epochs
-                )
+                self.writer.add_scalar("Loss/Train student", epoch_loss, ep)
+                self.writer.add_scalar("Accuracy/Train student", epoch_acc, ep)
+                self.writer.add_scalar("Accuracy/Validation student", epoch_val_acc, ep)
+                self.writer.add_scalar("Loss/Cross-entropy student", s.mean(student_ce_loss), ep)
+                self.writer.add_scalar("Loss/Divergence student", s.mean(student_divergence), ep)
+                self.writer.add_scalar("Loss/Entropy student", s.mean(student_entropy), ep)
 
             loss_arr.append(epoch_loss)
-            print(f"Epoch: {ep+1}, Loss: {epoch_loss}, Accuracy: {epoch_acc}")
+            print(
+                "Epoch: {}, Loss: {}, Accuracy: {}".format(
+                    ep + 1, epoch_loss, epoch_acc
+                )
+            )
 
         self.student_model.load_state_dict(self.best_student_model_weights)
         if save_model:
-            torch.save(self.student_model.state_dict(), save_model_pth)
+            torch.save(self.student_model.state_dict(), save_model_path)
         if plot_losses:
             plt.plot(loss_arr)
 
@@ -149,12 +175,13 @@ class VirtualTeacher:
         for i in range(y_pred_student.shape[0]):
             soft_label[i, y_true[i]] = self.correct_prob
 
-        loss = (1 - self.distil_weight) * F.cross_entropy(y_pred_student, y_true)
-        loss += (self.distil_weight) * self.loss_fn(
+        supervised = (1 - self.distil_weight) * F.cross_entropy(y_pred_student, y_true)
+        distillation = (self.distil_weight) * self.loss_fn(
             F.log_softmax(y_pred_student, dim=1),
             F.softmax(soft_label / self.temp, dim=1),
         )
-        return loss
+        loss = supervised + distillation
+        return loss, supervised, distillation
 
     def evaluate(self):
         """
