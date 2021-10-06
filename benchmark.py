@@ -26,7 +26,7 @@ class CustomKLDivLoss(nn.Module):
 
 class SoftKLDivLoss(nn.Module):
     def __init__(self, temp=20.0, reduction='batchmean', log_target=False) -> None:
-        super(CustomKLDivLoss, self).__init__()
+        super(SoftKLDivLoss, self).__init__()
         self.temp = temp
         self.reduction = reduction
         self.log_target = log_target
