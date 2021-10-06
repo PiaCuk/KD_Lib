@@ -23,7 +23,7 @@ class DML:
     :param device (str): Device used for training; 'cpu' for cpu and 'cuda' for gpu
     :param log (bool): True if logging required
     :param logdir (str): Directory for storing logs
-    :param use_scheduler(bool): True to decrease learning rate during training
+    :param use_scheduler (bool): True to decrease learning rate during training
     """
 
     def __init__(
@@ -55,7 +55,7 @@ class DML:
 
         if self.log:
             self.writer = SummaryWriter(logdir)
-        
+
         if use_scheduler:
             # Drop lr by 0.1 every 60 epochs (Zhang et al.)
             for i in range(len(self.student_cohort)):
@@ -74,10 +74,10 @@ class DML:
                 "Either an invalid device or CUDA is not available. Defaulting to CPU."
             )
             self.device = torch.device("cpu")
-        
+
         for student in self.student_cohort:
             student.to(self.device)
-    
+
     def ensemble_target(self, logits_list, j):
         # Calculate ensemble target given a list of logits, omitting the j'th element
         num_logits = len(logits_list)
@@ -101,7 +101,8 @@ class DML:
 
         length_of_dataset = len(self.train_loader.dataset)
         best_acc = 0.0
-        self.best_student_model_weights = deepcopy(self.student_cohort[0].state_dict())
+        self.best_student_model_weights = deepcopy(
+            self.student_cohort[0].state_dict())
         self.best_student = self.student_cohort[0]
         self.best_student_id = 0
         num_students = len(self.student_cohort)
@@ -115,7 +116,8 @@ class DML:
             cohort_divergence = [0 for s in range(num_students)]
             cohort_entropy = [0 for s in range(num_students)]
 
-            epoch_len = int(len(self.train_loader.dataset) / self.train_loader.batch_size)
+            epoch_len = int(len(self.train_loader.dataset) /
+                            self.train_loader.batch_size)
 
             for (data, label) in tqdm(self.train_loader, total=epoch_len, position=1):
 
@@ -124,7 +126,7 @@ class DML:
 
                 for optim in self.student_optimizers:
                     optim.zero_grad()
-                
+
                 # Forward passes to compute logits
                 student_outputs = []
                 for n in self.student_cohort:
@@ -132,14 +134,15 @@ class DML:
                     student_outputs.append(logits)
 
                 avg_student_loss = 0
-                
+
                 for i in range(num_students):
                     student_loss = 0
                     if self.use_ensemble:
                         # Calculate ensemble target w/o applying softmax here
                         target = self.ensemble_target(student_outputs, i)
                         # Softmax should be applied in loss_fn
-                        student_loss += self.loss_fn(student_outputs[i], target.detach())
+                        student_loss += self.loss_fn(
+                            student_outputs[i], target.detach())
                     else:
                         # Calculate pairwise divergence
                         for j in range(num_students):
@@ -156,10 +159,11 @@ class DML:
                     cohort_divergence[i] += (1 / epoch_len) * student_loss
 
                     # Running average of output entropy
-                    output_distribution = Categorical(logits=student_outputs[i])
+                    output_distribution = Categorical(
+                        logits=student_outputs[i])
                     entropy = output_distribution.entropy().mean(dim=0)
                     cohort_entropy[i] += (1 / epoch_len) * entropy
-                     
+
                     student_loss += ce_loss
                     student_loss.backward()
                     self.student_optimizers[i].step()
@@ -169,9 +173,11 @@ class DML:
                 predictions = []
                 correct_preds = []
                 for i in range(num_students):
-                    predictions.append(student_outputs[i].argmax(dim=1, keepdim=True))
+                    predictions.append(
+                        student_outputs[i].argmax(dim=1, keepdim=True))
                     correct_preds.append(
-                        predictions[i].eq(label.view_as(predictions[i])).sum().item()
+                        predictions[i].eq(label.view_as(
+                            predictions[i])).sum().item()
                     )
 
                 correct += sum(correct_preds) / len(correct_preds)
@@ -186,33 +192,41 @@ class DML:
 
                 if epoch_val_acc > best_acc:
                     best_acc = epoch_val_acc
-                    self.best_student_model_weights = deepcopy(student.state_dict())
+                    self.best_student_model_weights = deepcopy(
+                        student.state_dict())
                     self.best_student = student
                     self.best_student_id = student_id
-                
+
                 if self.log:
-                    self.writer.add_scalar("Accuracy/Validation student"+str(student_id), epoch_val_acc, ep)
-                    self.writer.add_scalar("Loss/Cross-entropy student"+str(student_id), cohort_ce_loss[student_id], ep)
-                    self.writer.add_scalar("Loss/Divergence student"+str(student_id), cohort_divergence[student_id], ep)
-                    self.writer.add_scalar("Loss/Entropy student"+str(student_id), cohort_entropy[student_id], ep)
+                    self.writer.add_scalar(
+                        "Accuracy/Validation student"+str(student_id), epoch_val_acc, ep)
+                    self.writer.add_scalar(
+                        "Loss/Cross-entropy student"+str(student_id), cohort_ce_loss[student_id], ep)
+                    self.writer.add_scalar(
+                        "Loss/Divergence student"+str(student_id), cohort_divergence[student_id], ep)
+                    self.writer.add_scalar(
+                        "Loss/Entropy student"+str(student_id), cohort_entropy[student_id], ep)
 
             if self.log:
                 self.writer.add_scalar("Loss/Train average", epoch_loss, ep)
                 self.writer.add_scalar("Accuracy/Train average", epoch_acc, ep)
 
             loss_arr.append(epoch_loss)
-            
+
             if self.student_schedulers:
                 for i in range(num_students):
                     self.student_schedulers[i].step()
-                
+
                 if ep % 10 == 0:
-                    print(f"Epoch {ep}, Learning rate {self.student_schedulers[i].get_last_lr()}")
-                    print(f"Epoch: {ep}, Loss: {epoch_loss}, Training accuracy: {epoch_acc}")
+                    print(
+                        f"Epoch {ep}, Learning rate {self.student_schedulers[i].get_last_lr()}")
+                    print(
+                        f"Epoch: {ep}, Loss: {epoch_loss}, Training accuracy: {epoch_acc}")
 
         self.best_student.load_state_dict(self.best_student_model_weights)
         if save_model:
-            print(f"The best student model is the model number {self.best_student_id} in the cohort")
+            print(
+                f"The best student model is the model number {self.best_student_id} in the cohort")
             if not os.path.isdir(save_model_path):
                 os.mkdir(save_model_path)
             torch.save(self.best_student.state_dict(), os.path.join(
@@ -272,4 +286,5 @@ class DML:
         print("-" * 80)
         for i, student in enumerate(self.student_cohort):
             student_params = sum(p.numel() for p in student.parameters())
-            print(f"Total parameters for the student network {i} are: {student_params}")
+            print(
+                f"Total parameters for the student network {i} are: {student_params}")
