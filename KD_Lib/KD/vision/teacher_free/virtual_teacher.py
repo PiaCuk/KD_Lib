@@ -59,14 +59,21 @@ class VirtualTeacher:
         if self.log:
             self.writer = SummaryWriter(logdir)
 
-        try:
-            torch.Tensor(0).to(device)
-            self.device = device
-        except:
+        if device.type == "cpu":
+            self.device = torch.device("cpu")
+            print("Device is set to CPU.")
+        elif device.type == "cuda":
+            if torch.cuda.is_available():
+                self.device = torch.device("cuda")
+                print("Device is set to CUDA.")
+        else:
             print(
                 "Either an invalid device or CUDA is not available. Defaulting to CPU."
             )
-            self.device = "cpu"
+            self.device = torch.device("cpu")
+        
+        self.student_model = student_model.to(self.device)
+        self.loss_fn = loss_fn.to(self.device)
 
     def train_student(
         self,
@@ -162,7 +169,7 @@ class VirtualTeacher:
 
         self.student_model.load_state_dict(self.best_student_model_weights)
         if save_model:
-            torch.save(self.student_model.state_dict(), save_model_path)
+            torch.save(self.student_model.state_dict(), os.path.join(save_model_path, "student.pt"))
         if plot_losses:
             plt.plot(loss_arr)
 
