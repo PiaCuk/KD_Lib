@@ -2,6 +2,7 @@ import os
 import random
 import numpy as np
 import torch
+from torch.cuda.random import seed
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
@@ -9,9 +10,7 @@ from torchvision import datasets, transforms
 
 from KD_Lib.KD import VanillaKD, DML, VirtualTeacher
 from KD_Lib.models import Shallow, ResNet18, ResNet50
-
-
-torch.manual_seed(1234)
+from temperature_scaling import ModelWithTemperature
 
 
 class CustomKLDivLoss(nn.Module):
@@ -62,9 +61,9 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
     resnet_params = ([4, 4, 4, 4, 4], 1, 10)
     if algo == "dml" or algo == "dml_e":
         # Define models
-        # student_cohort = [ResNet18(*resnet_params) for i in range(num_students)]
-        student_cohort = [
-            ResNet50(*resnet_params), ResNet18(*resnet_params), ResNet18(*resnet_params)]
+        student_cohort = [ResNet18(*resnet_params) for i in range(num_students)]
+        # student_cohort = [
+        #     ResNet50(*resnet_params), ResNet18(*resnet_params), ResNet18(*resnet_params)]
 
         student_optimizers = [_create_optim(
             student_cohort[i].parameters(), adam=use_adam) for i in range(num_students)]
@@ -78,7 +77,7 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
         # Define TfKD with logging to Tensorboard
         # Note that we need to use Pytorch's KLD here, due to the implementation of TfKD in KD-Lib
         distiller = VirtualTeacher(student, train_loader, test_loader, student_optimizer,
-                                   loss_fn=nn.KLDivLoss(), log=True, logdir=save_path, device=device)
+                                   loss_fn=nn.KLDivLoss(reduction='batchmean'), log=True, logdir=save_path, device=device)
     else:
         teacher = ResNet50(*resnet_params)
         student = ResNet18(*resnet_params)
@@ -91,6 +90,18 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
     return distiller
 
 
+def set_deterministic(seed=42):
+    # See https://stackoverflow.com/a/64584503/8697610
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.enabled = False
+
+
 def seed_worker(worker_id):
     # See https://pytorch.org/docs/stable/notes/randomness.html
     worker_seed = torch.initial_seed() % 2**32
@@ -98,7 +109,7 @@ def seed_worker(worker_id):
     random.seed(worker_seed)
 
 
-def main(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), num_students=2, use_adam=True):
+def main(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), num_students=2, use_adam=True, seed=None):
     """
     Main function to call for benchmarking.
 
@@ -111,10 +122,16 @@ def main(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), n
     :param num_students (int): Number of students in cohort. Used for DML
     :param use_adam (bool): True to use Adam optim
     """
-    # Generator used to control sampling of dataset
-    # See https://pytorch.org/docs/stable/data.html#data-loading-randomness
-    g = torch.Generator()
-    g.manual_seed(torch.initial_seed())
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+
+        # Generator used to control sampling of dataset
+        # See https://pytorch.org/docs/stable/data.html#data-loading-randomness
+        g = torch.Generator()
+        g.manual_seed(torch.initial_seed())
 
     train_loader = torch.utils.data.DataLoader(
         datasets.FashionMNIST(
@@ -129,8 +146,8 @@ def main(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), n
         shuffle=True,
         pin_memory=True,
         num_workers=16,
-        worker_init_fn=seed_worker,
-        generator=g,
+        worker_init_fn=seed_worker if seed is not None else None,
+        generator=g if seed is not None else None,
     )
 
     test_loader = torch.utils.data.DataLoader(
@@ -145,8 +162,8 @@ def main(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), n
         shuffle=True,
         pin_memory=True,
         num_workers=16,
-        worker_init_fn=seed_worker,
-        generator=g,
+        worker_init_fn=seed_worker if seed is not None else None,
+        generator=g if seed is not None else None,
     )
 
     # Set device to be trained on
@@ -162,13 +179,19 @@ def main(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), n
             print("Using " + algo)
             # Run DML
             distiller.train_students(
-                epochs=epochs, save_model=True, save_model_path=run_path, plot_losses=False)
+                epochs=epochs, plot_losses=False, save_model=True, save_model_path=run_path)
         elif algo == "tfkd":
             distiller.train_student(
                 epochs=epochs, plot_losses=False, save_model=True, save_model_path=run_path)
         else:
             distiller.train_teacher(
                 epochs=epochs, plot_losses=False, save_model=False)
+            
+            scaled_model = ModelWithTemperature(distiller.teacher_model)
+            scaled_model.set_temperature(test_loader)
+            distiller.temp = scaled_model.temperature.item()
+            print("Train student with temperature " + str(distiller.temp))
+            
             distiller.train_student(
                 epochs=epochs, plot_losses=False, save_model=True, save_model_path=run_path)
 
@@ -176,9 +199,17 @@ def main(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), n
 if __name__ == "__main__":
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-
+    """
     main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session6",
          loss_fn=SoftKLDivLoss(), num_students=3)
     main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/session6",
          loss_fn=SoftKLDivLoss(), num_students=3)
-    # main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/session3_3")
+    main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/session3_3")
+    main("tfkd", 5, 100, 1024, "/data1/9cuk/kd_lib/session7")
+    """
+    # main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/calibration1",
+    #     loss_fn=CustomKLDivLoss(), num_students=3, seed=42)
+    # main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/calibration1",
+    #     loss_fn=CustomKLDivLoss(), num_students=3, seed=42)
+    # main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/calibration1", seed=42)
+    main("tfkd", 5, 100, 1024, "/data1/9cuk/kd_lib/calibration1", seed=42)
