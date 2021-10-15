@@ -10,6 +10,8 @@ from copy import deepcopy
 import os
 from tqdm import tqdm
 
+from KD_Lib.KD.common.utils import ECELoss
+
 
 class DML:
     """
@@ -77,6 +79,7 @@ class DML:
 
         for student in self.student_cohort:
             student.to(self.device)
+        self.ece_loss = ECELoss(n_bins=15).to(self.device)
 
     def ensemble_target(self, logits_list, j):
         # Calculate ensemble target given a list of logits, omitting the j'th element
@@ -115,6 +118,7 @@ class DML:
             cohort_ce_loss = [0 for s in range(num_students)]
             cohort_divergence = [0 for s in range(num_students)]
             cohort_entropy = [0 for s in range(num_students)]
+            cohort_calibration = [0 for s in range(num_students)]
 
             epoch_len = int(length_of_dataset / self.train_loader.batch_size)
 
@@ -156,6 +160,8 @@ class DML:
                     # Running average of both loss summands
                     cohort_ce_loss[i] += (1 / epoch_len) * ce_loss
                     cohort_divergence[i] += (1 / epoch_len) * student_loss
+
+                    cohort_calibration[i] += (1 / epoch_len) * self.ece_loss(student_outputs[i], label).item()
 
                     # Running average of output entropy
                     output_distribution = Categorical(
@@ -205,6 +211,8 @@ class DML:
                         "Loss/Divergence student"+str(student_id), cohort_divergence[student_id], ep)
                     self.writer.add_scalar(
                         "Loss/Entropy student"+str(student_id), cohort_entropy[student_id], ep)
+                    self.writer.add_scalar(
+                        "Loss/Calibration student"+str(student_id), cohort_calibration[student_id], ep)
 
             if self.log:
                 self.writer.add_scalar("Loss/Train average", epoch_loss, ep)

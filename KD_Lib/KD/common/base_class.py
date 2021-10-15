@@ -9,6 +9,8 @@ import os
 from tqdm import tqdm
 import statistics as s
 
+from KD_Lib.KD.common.utils import ECELoss
+
 
 class BaseClass:
     """
@@ -76,6 +78,7 @@ class BaseClass:
         self.student_model = student_model.to(self.device)
         self.loss_fn = loss_fn.to(self.device)
         self.ce_fn = nn.CrossEntropyLoss().to(self.device)
+        self.ece_loss = ECELoss(n_bins=15).to(self.device)
 
     def train_teacher(
         self,
@@ -106,6 +109,7 @@ class BaseClass:
 
         for ep in tqdm(range(epochs), position=0):
             epoch_loss = 0.0
+            epoch_calibration = 0.0
             correct = 0
             for (data, label) in self.train_loader:
                 data = data.to(self.device)
@@ -114,6 +118,8 @@ class BaseClass:
 
                 if isinstance(out, tuple):
                     out = out[0]
+
+                epoch_calibration += (1 / length_of_dataset) * self.ece_loss(out, label).item()
 
                 pred = out.argmax(dim=1, keepdim=True)
                 correct += pred.eq(label.view_as(pred)).sum().item()
@@ -138,6 +144,7 @@ class BaseClass:
 
             if self.log:
                 self.writer.add_scalar("Loss/Train teacher", epoch_loss, ep)
+                self.writer.add_scalar("Loss/Calibration teacher", epoch_calibration, ep)
                 self.writer.add_scalar("Accuracy/Train teacher", epoch_acc, ep)
                 self.writer.add_scalar("Accuracy/Validation teacher", epoch_val_acc, ep)
 
@@ -190,6 +197,7 @@ class BaseClass:
             student_ce_loss = []
             student_divergence = []
             student_entropy = []
+            student_calibration = []
 
             for (data, label) in self.train_loader:
 
@@ -213,6 +221,7 @@ class BaseClass:
                 if isinstance(student_out, tuple):
                     student_out = student_out[0]
 
+                student_calibration.append(self.ece_loss(student_out, label).item())
                 pred = student_out.argmax(dim=1, keepdim=True)
                 correct += pred.eq(label.view_as(pred)).sum().item()
 
@@ -239,6 +248,7 @@ class BaseClass:
                 self.writer.add_scalar("Loss/Cross-entropy student", s.mean(student_ce_loss), ep)
                 self.writer.add_scalar("Loss/Divergence student", s.mean(student_divergence), ep)
                 self.writer.add_scalar("Loss/Entropy student", s.mean(student_entropy), ep)
+                self.writer.add_scalar("Loss/Calibration student", s.mean(student_calibration), ep)
 
             loss_arr.append(epoch_loss)
             print(

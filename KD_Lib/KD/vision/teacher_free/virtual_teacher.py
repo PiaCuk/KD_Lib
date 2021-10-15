@@ -10,6 +10,8 @@ import os
 from tqdm import tqdm
 import statistics as s
 
+from KD_Lib.KD.common.utils import ECELoss
+
 
 class VirtualTeacher:
     """
@@ -74,6 +76,7 @@ class VirtualTeacher:
         
         self.student_model = student_model.to(self.device)
         self.loss_fn = loss_fn.to(self.device)
+        self.ece_loss = ECELoss(n_bins=15).to(self.device)
 
     def train_student(
         self,
@@ -109,6 +112,7 @@ class VirtualTeacher:
             student_ce_loss = []
             student_divergence = []
             student_entropy = []
+            student_calibration = []
 
             epoch_len = int(length_of_dataset / self.train_loader.batch_size)
 
@@ -129,6 +133,8 @@ class VirtualTeacher:
                 if isinstance(student_out, tuple):
                     student_out = student_out[0]
                 
+                student_calibration.append(self.ece_loss(student_out, label).item())
+
                 out_dist = Categorical(logits=student_out)
                 entropy = out_dist.entropy().mean(dim=0)
                 student_entropy.append(entropy.item())
@@ -159,6 +165,7 @@ class VirtualTeacher:
                 self.writer.add_scalar("Loss/Cross-entropy student", s.mean(student_ce_loss), ep)
                 self.writer.add_scalar("Loss/Divergence student", s.mean(student_divergence), ep)
                 self.writer.add_scalar("Loss/Entropy student", s.mean(student_entropy), ep)
+                self.writer.add_scalar("Loss/Calibration student", s.mean(student_calibration), ep)
 
             loss_arr.append(epoch_loss)
             print(
