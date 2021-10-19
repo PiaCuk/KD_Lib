@@ -65,10 +65,10 @@ class VanillaKD(BaseClass):
         soft_teacher_out = F.softmax(y_pred_teacher / self.temp, dim=1)
         soft_student_out = F.softmax(y_pred_student / self.temp, dim=1)
 
-        supervised = (1 - self.distil_weight) * F.cross_entropy(y_pred_student, y_true)
-        distillation = (self.distil_weight * self.temp * self.temp) * self.loss_fn(
+        supervised = F.cross_entropy(y_pred_student, y_true)
+        distillation = (self.temp * self.temp) * self.loss_fn(
             soft_teacher_out, soft_student_out
         )
-        loss = supervised + distillation
+        loss = (1 - self.distil_weight) * supervised + self.distil_weight * distillation
 
         return loss, supervised, distillation
