@@ -1,9 +1,6 @@
 import os
-import random
-import numpy as np
 
 import torch
-from torchvision import datasets, transforms
 
 from utils import CustomKLDivLoss, SoftKLDivLoss, set_seed, create_dataloader, create_distiller
 from temperature_scaling import ModelWithTemperature
@@ -54,12 +51,12 @@ def main(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), n
         else:
             distiller.train_teacher(
                 epochs=epochs, plot_losses=False, save_model=False)
-            
+
             scaled_model = ModelWithTemperature(distiller.teacher_model)
             scaled_model.set_temperature(test_loader)
             distiller.temp = scaled_model.temperature.item()
             print("Train student with temperature " + str(distiller.temp))
-            
+
             distiller.train_student(
                 epochs=epochs, plot_losses=False, save_model=True, save_model_path=run_path)
 
@@ -80,4 +77,4 @@ if __name__ == "__main__":
     # main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/calibration1",
     #     loss_fn=CustomKLDivLoss(), num_students=3, seed=42)
     # main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/calibration1", seed=42)
-    main("tfkd", 5, 100, 1024, "/data1/9cuk/kd_lib/calibration1", seed=42)
+    main("tfkd", 5, 10, 1024, "/data1/9cuk/kd_lib/calibration0", seed=42)
