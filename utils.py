@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import Tensor
+from torchvision import datasets, transforms
 
 from KD_Lib.KD import VanillaKD, DML, VirtualTeacher
 from KD_Lib.models import Shallow, ResNet18, ResNet50
@@ -33,6 +34,51 @@ class SoftKLDivLoss(torch.nn.Module):
         return (self.temp ** 2) * F.kl_div(soft_input, soft_target, reduction=self.reduction, log_target=self.log_target)
 
 
+def set_seed(seed=42, cuda_deterministic=False) -> torch.Generator:
+    # See https://stackoverflow.com/a/64584503/8697610
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    if cuda_deterministic:
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.enabled = False
+
+    # Generator used to control sampling of dataset
+    # See https://pytorch.org/docs/stable/data.html#data-loading-randomness
+    g = torch.Generator()
+    g.manual_seed(torch.initial_seed())
+    return g
+
+
+def seed_worker(worker_id):
+    # See https://pytorch.org/docs/stable/notes/randomness.html
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+
+def create_dataloader(batch_size, train, generator=None):
+    return torch.utils.data.DataLoader(
+        datasets.FashionMNIST(
+            "FashionMNIST",
+            train=train,
+            download=True,
+            transform=transforms.Compose(
+                [transforms.ToTensor(), transforms.Normalize((0.2860,), (0.3530,))]
+            ),
+        ),
+        batch_size=batch_size,
+        shuffle=True,
+        pin_memory=True,
+        num_workers=16,
+        worker_init_fn=seed_worker if generator is not None else None,
+        generator=generator,
+    )
+
+
 def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn=CustomKLDivLoss(), num_students=2, use_adam=True):
     """
     Create distillers for benchmarking.
@@ -57,7 +103,8 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
     resnet_params = ([4, 4, 4, 4, 4], 1, 10)
     if algo == "dml" or algo == "dml_e":
         # Define models
-        student_cohort = [ResNet18(*resnet_params) for i in range(num_students)]
+        student_cohort = [ResNet18(*resnet_params)
+                          for i in range(num_students)]
         # student_cohort = [
         #     ResNet50(*resnet_params), ResNet18(*resnet_params), ResNet18(*resnet_params)]
 
@@ -84,15 +131,3 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
         distiller = VanillaKD(teacher, student, train_loader, test_loader, teacher_optimizer,
                               student_optimizer, loss_fn=loss_fn, log=True, logdir=save_path, device=device)
     return distiller
-
-
-def set_deterministic(seed=42):
-    # See https://stackoverflow.com/a/64584503/8697610
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.enabled = False
