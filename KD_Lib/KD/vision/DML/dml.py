@@ -35,6 +35,7 @@ class DML:
         val_loader,
         student_optimizers,
         loss_fn=nn.MSELoss(),
+        distil_weight=0.5,
         device="cpu",
         log=False,
         logdir="./Experiments",
@@ -47,6 +48,7 @@ class DML:
         self.val_loader = val_loader
         self.student_optimizers = student_optimizers
         self.loss_fn = loss_fn
+        self.distil_weight = distil_weight
         self.log = log
         self.logdir = logdir
         self.student_schedulers = []
@@ -161,7 +163,8 @@ class DML:
                     cohort_ce_loss[i] += (1 / epoch_len) * ce_loss
                     cohort_divergence[i] += (1 / epoch_len) * student_loss
 
-                    cohort_calibration[i] += (1 / epoch_len) * self.ece_loss(student_outputs[i], label).item()
+                    cohort_calibration[i] += (1 / epoch_len) * \
+                        self.ece_loss(student_outputs[i], label).item()
 
                     # Running average of output entropy
                     output_distribution = Categorical(
@@ -169,7 +172,8 @@ class DML:
                     entropy = output_distribution.entropy().mean(dim=0)
                     cohort_entropy[i] += (1 / epoch_len) * entropy
 
-                    student_loss += ce_loss
+                    student_loss = (1 - self.distil_weight) * ce_loss + \
+                        (self.distil_weight * self.temp * self.temp) * student_loss
                     student_loss.backward()
                     self.student_optimizers[i].step()
 
