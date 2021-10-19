@@ -66,9 +66,9 @@ if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     """
     main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session6",
-         loss_fn=SoftKLDivLoss(), num_students=3)
+         loss_fn=SoftKLDivLoss(temp=20), num_students=3)
     main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/session6",
-         loss_fn=SoftKLDivLoss(), num_students=3)
+         loss_fn=SoftKLDivLoss(temp=20), num_students=3)
     main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/session3_3")
     main("tfkd", 5, 100, 1024, "/data1/9cuk/kd_lib/session7")
     """

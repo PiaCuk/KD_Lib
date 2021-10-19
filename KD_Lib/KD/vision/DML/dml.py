@@ -173,7 +173,7 @@ class DML:
                     cohort_entropy[i] += (1 / epoch_len) * entropy
 
                     student_loss = (1 - self.distil_weight) * ce_loss + \
-                        (self.distil_weight * self.temp * self.temp) * student_loss
+                        self.distil_weight * student_loss
                     student_loss.backward()
                     self.student_optimizers[i].step()
 
