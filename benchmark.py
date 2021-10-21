@@ -38,11 +38,10 @@ def main(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), n
         print(f"Starting run {i}")
         run_path = os.path.join(save_path, algo + str(i).zfill(3))
         distiller = create_distiller(
-            algo, train_loader, test_loader, device, save_path=run_path, loss_fn=loss_fn, num_students=num_students, use_adam=use_adam)
+            algo, train_loader, test_loader, device, save_path=run_path, loss_fn=loss_fn, lr=0.005, distil_weight=0.5, num_students=num_students, use_adam=use_adam)
 
         if algo == "dml" or algo == "dml_e":
-            print("Using " + algo)
-            # Run DML
+            # Run DML or DML_e
             distiller.train_students(
                 epochs=epochs, plot_losses=False, save_model=True, save_model_path=run_path)
         elif algo == "tfkd":
@@ -65,16 +64,21 @@ if __name__ == "__main__":
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     """
+    # First round of experiments
     main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session6",
          loss_fn=SoftKLDivLoss(temp=20), num_students=3)
     main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/session6",
          loss_fn=SoftKLDivLoss(temp=20), num_students=3)
     main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/session3_3")
     main("tfkd", 5, 100, 1024, "/data1/9cuk/kd_lib/session7")
-    """
-    # main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/calibration1",
-    #     loss_fn=CustomKLDivLoss(), num_students=3, seed=42)
-    # main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/calibration1",
-    #     loss_fn=CustomKLDivLoss(), num_students=3, seed=42)
-    # main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/calibration1", seed=42)
+
+    # First calibration experiments
+    main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/calibration1",
+        loss_fn=CustomKLDivLoss(), num_students=3, seed=42)
+    main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/calibration1",
+        loss_fn=CustomKLDivLoss(), num_students=3, seed=42)
+    main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/calibration1", seed=42)
     main("tfkd", 5, 10, 1024, "/data1/9cuk/kd_lib/calibration0", seed=42)
+    """
+    main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/super_convergence0",
+        loss_fn=CustomKLDivLoss(), num_students=3, seed=42)

@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from torch.distributions.categorical import Categorical
 
@@ -51,7 +50,7 @@ class DML:
         self.distil_weight = distil_weight
         self.log = log
         self.logdir = logdir
-        self.student_schedulers = []
+        self.use_scheduler = use_scheduler
         self.use_ensemble = use_ensemble
 
         if self.use_ensemble:
@@ -59,12 +58,6 @@ class DML:
 
         if self.log:
             self.writer = SummaryWriter(logdir)
-
-        if use_scheduler:
-            # Drop lr by 0.1 every 60 epochs (Zhang et al.)
-            for i in range(len(self.student_cohort)):
-                self.student_schedulers.append(torch.optim.lr_scheduler.StepLR(
-                    self.student_optimizers[i], step_size=20, gamma=0.1))
 
         if device.type == "cpu":
             self.device = torch.device("cpu")
@@ -104,13 +97,28 @@ class DML:
 
         loss_arr = []
 
+        num_students = len(self.student_cohort)
         length_of_dataset = len(self.train_loader.dataset)
+        epoch_len = len(self.train_loader) # int(length_of_dataset / self.train_loader.batch_size)
+
         best_acc = 0.0
         self.best_student_model_weights = deepcopy(
             self.student_cohort[0].state_dict())
         self.best_student = self.student_cohort[0]
         self.best_student_id = 0
-        num_students = len(self.student_cohort)
+                
+        if self.use_scheduler: 
+            self.student_schedulers = []
+
+            for i in range(num_students):
+                # Drop lr by 0.1 every 60 epochs (Zhang et al.)
+                # self.student_schedulers.append(torch.optim.lr_scheduler.StepLR(
+                #     self.student_optimizers[i], step_size=20, gamma=0.1))
+
+                # Get learning rate from optimizer and create schedulers for each student
+                optim_lr = self.student_optimizers[i].param_groups[0]["lr"]
+                self.student_schedulers.append(torch.optim.lr_scheduler.OneCycleLR(
+                    self.student_optimizers[i], max_lr=optim_lr, epochs=epochs, steps_per_epoch=epoch_len, pct_start=0.1))
 
         print("\nTraining students...")
 
@@ -121,8 +129,6 @@ class DML:
             cohort_divergence = [0 for s in range(num_students)]
             cohort_entropy = [0 for s in range(num_students)]
             cohort_calibration = [0 for s in range(num_students)]
-
-            epoch_len = int(length_of_dataset / self.train_loader.batch_size)
 
             for (data, label) in tqdm(self.train_loader, total=epoch_len, position=1):
 
@@ -174,10 +180,12 @@ class DML:
 
                     student_loss = (1 - self.distil_weight) * ce_loss + \
                         self.distil_weight * student_loss
+                    avg_student_loss += (1 / num_students) * student_loss
+
                     student_loss.backward()
                     self.student_optimizers[i].step()
-
-                    avg_student_loss += (1 / num_students) * student_loss
+                    if self.use_scheduler:
+                        self.student_schedulers[i].step()
 
                 predictions = []
                 correct_preds = []
@@ -217,6 +225,11 @@ class DML:
                         "Loss/Entropy student"+str(student_id), cohort_entropy[student_id], ep)
                     self.writer.add_scalar(
                         "Loss/Calibration student"+str(student_id), cohort_calibration[student_id], ep)
+                    
+                    if self.use_scheduler:
+                        # print(self.student_schedulers[student_id].get_last_lr())
+                        self.writer.add_scalar(
+                            "Optimizer/lr student"+str(student_id), self.student_schedulers[student_id].get_last_lr()[0], ep)
 
             if self.log:
                 self.writer.add_scalar("Loss/Train average", epoch_loss, ep)
@@ -224,15 +237,15 @@ class DML:
 
             loss_arr.append(epoch_loss)
 
-            if self.student_schedulers:
-                for i in range(num_students):
-                    self.student_schedulers[i].step()
+            # if self.student_schedulers:
+            #     for i in range(num_students):
+            #         self.student_schedulers[i].step()
 
-                if ep % 10 == 0:
-                    print(
-                        f"Epoch {ep}, Learning rate {self.student_schedulers[i].get_last_lr()}")
-                    print(
-                        f"Epoch: {ep}, Loss: {epoch_loss}, Training accuracy: {epoch_acc}")
+            #     if ep % 10 == 0:
+            #         print(
+            #             f"Epoch {ep}, Learning rate {self.student_schedulers[i].get_last_lr()}")
+            #         print(
+            #             f"Epoch: {ep}, Loss: {epoch_loss}, Training accuracy: {epoch_acc}")
 
         self.best_student.load_state_dict(self.best_student_model_weights)
         if save_model:
