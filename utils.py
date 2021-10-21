@@ -79,7 +79,20 @@ def create_dataloader(batch_size, train, generator=None):
     )
 
 
-def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn=CustomKLDivLoss(), distil_weight=0.5, num_students=2, use_adam=True):
+def _create_optim(params, lr, adam=False):
+    # These are the optimizers used by Zhang et al.
+    if adam:
+        return torch.optim.Adam(params, lr, betas=(0.9, 0.999))
+    else:
+        # Zhang et al. use no weight decay and nesterov=True
+        return torch.optim.SGD(params, lr, momentum=0.9, weight_decay=0.0001)
+
+
+def _create_scheduler(optim, lr, epochs, epoch_len):
+    return torch.optim.lr_scheduler.OneCycleLR(optim, max_lr=lr, epochs=epochs, steps_per_epoch=epoch_len, pct_start=0.1)
+
+
+def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn=CustomKLDivLoss(), lr=0.01, distil_weight=0.5, num_students=2, use_adam=True, use_scheduler=False):
     """
     Create distillers for benchmarking.
 
@@ -92,14 +105,6 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
     :param num_students (int): Number of students in cohort. Used for DML
     :param use_adam (bool): True to use Adam optim
     """
-    def _create_optim(params, adam=False):
-        # These are the optimizers used by Zhang et al.
-        if adam:
-            return torch.optim.Adam(params, lr=0.01, betas=(0.9, 0.999))
-        else:
-            # Zhang et al. use no weight decay and nesterov=True
-            return torch.optim.SGD(params, 0.1, momentum=0.9, weight_decay=0.0001)
-
     resnet_params = ([4, 4, 4, 4, 4], 1, 10)
     if algo == "dml" or algo == "dml_e":
         # Define models
@@ -109,13 +114,14 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
         #     ResNet50(*resnet_params), ResNet18(*resnet_params), ResNet18(*resnet_params)]
 
         student_optimizers = [_create_optim(
-            student_cohort[i].parameters(), adam=use_adam) for i in range(num_students)]
+            student_cohort[i].parameters(), lr, adam=use_adam) for i in range(num_students)]
         # Define DML with logging to Tensorboard
         distiller = DML(student_cohort, train_loader, test_loader, student_optimizers, loss_fn=loss_fn, distil_weight=distil_weight,
                         log=True, logdir=save_path, device=device, use_scheduler=True, use_ensemble=True if algo == "dml_e" else False)
     elif algo == "tfkd":
         student = ResNet18(*resnet_params)
-        student_optimizer = _create_optim(student.parameters(), adam=use_adam)
+        student_optimizer = _create_optim(
+            student.parameters(), lr, adam=use_adam)
         # Define TfKD with logging to Tensorboard
         # Note that we need to use Pytorch's KLD here, due to the implementation of TfKD in KD-Lib
         distiller = VirtualTeacher(student, train_loader, test_loader, student_optimizer, loss_fn=torch.nn.KLDivLoss(
@@ -124,8 +130,10 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
         teacher = ResNet50(*resnet_params)
         student = ResNet18(*resnet_params)
 
-        teacher_optimizer = _create_optim(teacher.parameters(), adam=use_adam)
-        student_optimizer = _create_optim(student.parameters(), adam=use_adam)
+        teacher_optimizer = _create_optim(
+            teacher.parameters(), lr, adam=use_adam)
+        student_optimizer = _create_optim(
+            student.parameters(), lr, adam=use_adam)
         # Define KD with logging to Tensorboard
         distiller = VanillaKD(teacher, student, train_loader, test_loader, teacher_optimizer, student_optimizer,
                               loss_fn=loss_fn, distil_weight=distil_weight, log=True, logdir=save_path, device=device)
