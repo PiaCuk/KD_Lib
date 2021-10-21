@@ -86,6 +86,7 @@ class BaseClass:
         plot_losses=True,
         save_model=True,
         save_model_path="./models/teacher.pt",
+        use_scheduler=False
     ):
         """
         Function that will be training the teacher
@@ -94,12 +95,18 @@ class BaseClass:
         :param plot_losses (bool): True if you want to plot the losses
         :param save_model (bool): True if you want to save the teacher model
         :param save_model_path (str): Path where you want to store the teacher model
+        :param use_scheduler (bool): True to use OneCycleLR during training
         """
         self.teacher_model.train()
         loss_arr = []
         length_of_dataset = len(self.train_loader.dataset)
         best_acc = 0.0
         self.best_teacher_model_weights = deepcopy(self.teacher_model.state_dict())
+
+        if use_scheduler:
+            optim_lr = self.optimizer_teacher.param_groups[0]["lr"]
+            scheduler_teacher = torch.optim.lr_scheduler.OneCycleLR(
+                self.optimizer_teacher, max_lr=optim_lr, epochs=epochs, steps_per_epoch=len(self.train_loader), pct_start=0.1)
 
         save_dir = os.path.dirname(save_model_path)
         if not os.path.exists(save_dir):
@@ -130,6 +137,9 @@ class BaseClass:
                 loss.backward()
                 self.optimizer_teacher.step()
 
+                if use_scheduler:
+                    scheduler_teacher.step()
+
                 epoch_loss += loss
 
             epoch_acc = correct / length_of_dataset
@@ -147,6 +157,8 @@ class BaseClass:
                 self.writer.add_scalar("Loss/Calibration teacher", epoch_calibration, ep)
                 self.writer.add_scalar("Accuracy/Train teacher", epoch_acc, ep)
                 self.writer.add_scalar("Accuracy/Validation teacher", epoch_val_acc, ep)
+                if use_scheduler:
+                    self.writer.add_scalar("Optimizer/lr teacher", scheduler_teacher.get_last_lr()[0], ep)
 
             loss_arr.append(epoch_loss)
             print(
@@ -169,6 +181,7 @@ class BaseClass:
         plot_losses=True,
         save_model=True,
         save_model_path="./models/student.pt",
+        use_scheduler=False
     ):
         """
         Function to train student model - for internal use only.
@@ -177,6 +190,7 @@ class BaseClass:
         :param plot_losses (bool): True if you want to plot the losses
         :param save_model (bool): True if you want to save the student model
         :param save_model_path (str): Path where you want to save the student model
+        :param use_scheduler (bool): True to use OneCycleLR during training
         """
         self.teacher_model.eval()
         self.student_model.train()
@@ -184,6 +198,11 @@ class BaseClass:
         length_of_dataset = len(self.train_loader.dataset)
         best_acc = 0.0
         self.best_student_model_weights = deepcopy(self.student_model.state_dict())
+
+        if use_scheduler:
+            optim_lr = self.optimizer_student.param_groups[0]["lr"]
+            scheduler_student = torch.optim.lr_scheduler.OneCycleLR(
+                self.optimizer_student, max_lr=optim_lr, epochs=epochs, steps_per_epoch=len(self.train_loader), pct_start=0.1)
 
         save_dir = os.path.dirname(save_model_path)
         if not os.path.exists(save_dir):
@@ -229,6 +248,9 @@ class BaseClass:
                 loss.backward()
                 self.optimizer_student.step()
 
+                if use_scheduler:
+                    scheduler_student.step()
+
                 epoch_loss += loss.item()
 
             epoch_acc = correct / length_of_dataset
@@ -249,6 +271,8 @@ class BaseClass:
                 self.writer.add_scalar("Loss/Divergence student", s.mean(student_divergence), ep)
                 self.writer.add_scalar("Loss/Entropy student", s.mean(student_entropy), ep)
                 self.writer.add_scalar("Loss/Calibration student", s.mean(student_calibration), ep)
+                if use_scheduler:
+                    self.writer.add_scalar("Optimizer/lr student", scheduler_student.get_last_lr()[0], ep)
 
             loss_arr.append(epoch_loss)
             print(
@@ -269,6 +293,7 @@ class BaseClass:
         plot_losses=True,
         save_model=True,
         save_model_path="./models/student.pt",
+        use_scheduler=False
     ):
         """
         Function that will be training the student
@@ -277,8 +302,9 @@ class BaseClass:
         :param plot_losses (bool): True if you want to plot the losses
         :param save_model (bool): True if you want to save the student model
         :param save_model_path (str): Path where you want to save the student model
+        :param use_scheduler (bool): True to use OneCycleLR during training
         """
-        self._train_student(epochs, plot_losses, save_model, save_model_path)
+        self._train_student(epochs, plot_losses, save_model, save_model_path, use_scheduler)
 
     def calculate_kd_loss(self, y_pred_student, y_pred_teacher, y_true):
         """

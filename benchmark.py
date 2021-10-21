@@ -9,7 +9,7 @@ from temperature_scaling import ModelWithTemperature
 # TODO implement dynamic temperature in TfKD
 
 
-def main(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), num_students=2, use_adam=True, seed=None):
+def main(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), num_students=2, use_adam=True, seed=None, use_scheduler=False):
     """
     Main function to call for benchmarking.
 
@@ -21,6 +21,8 @@ def main(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), n
     :param loss_fn (torch.nn.Module): Loss Function used for distillation. Not used for VanillaKD (BaseClass), as it is implemented internally
     :param num_students (int): Number of students in cohort. Used for DML
     :param use_adam (bool): True to use Adam optim
+    :param seed:
+    :param use_scheduler (bool): True to decrease learning rate during training
     """
     if seed is not None:
         g = set_seed(seed)
@@ -39,25 +41,24 @@ def main(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), n
         run_path = os.path.join(save_path, algo + str(i).zfill(3))
         distiller = create_distiller(
             algo, train_loader, test_loader, device, save_path=run_path, loss_fn=loss_fn, lr=0.005, distil_weight=0.5, num_students=num_students, use_adam=use_adam)
+        
+        # epochs, plot_losses, save_model, save_model_path, use_scheduler
+        param_list = [epochs, False, True, run_path, use_scheduler]
 
         if algo == "dml" or algo == "dml_e":
             # Run DML or DML_e
-            distiller.train_students(
-                epochs=epochs, plot_losses=False, save_model=True, save_model_path=run_path)
+            distiller.train_students(*param_list)
         elif algo == "tfkd":
-            distiller.train_student(
-                epochs=epochs, plot_losses=False, save_model=True, save_model_path=run_path)
+            distiller.train_student(*param_list)
         else:
-            distiller.train_teacher(
-                epochs=epochs, plot_losses=False, save_model=False)
+            distiller.train_teacher(*param_list)
 
             scaled_model = ModelWithTemperature(distiller.teacher_model)
             scaled_model.set_temperature(test_loader)
             distiller.temp = scaled_model.temperature.item()
             print("Train student with temperature " + str(distiller.temp))
 
-            distiller.train_student(
-                epochs=epochs, plot_losses=False, save_model=True, save_model_path=run_path)
+            distiller.train_student(*param_list)
 
 
 if __name__ == "__main__":
@@ -81,4 +82,4 @@ if __name__ == "__main__":
     main("tfkd", 5, 10, 1024, "/data1/9cuk/kd_lib/calibration0", seed=42)
     """
     main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/super_convergence0",
-        loss_fn=CustomKLDivLoss(), num_students=3, seed=42)
+        loss_fn=CustomKLDivLoss(), num_students=3, seed=42, use_scheduler=True)

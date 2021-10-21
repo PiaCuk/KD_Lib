@@ -84,6 +84,7 @@ class VirtualTeacher:
         plot_losses=True,
         save_model=True,
         save_model_path="./models/student.pt",
+        use_scheduler=False
     ):
         """
         Function that will be training the student
@@ -92,6 +93,7 @@ class VirtualTeacher:
         :param plot_losses (bool): True if you want to plot the losses
         :param save_model (bool): True if you want to save the student model
         :param save_model_pth (str): Path where you want to save the student model
+        :param use_scheduler (bool): True to use OneCycleLR during training
         """
 
         self.student_model.train()
@@ -99,6 +101,11 @@ class VirtualTeacher:
         length_of_dataset = len(self.train_loader.dataset)
         best_acc = 0.0
         self.best_student_model_weights = deepcopy(self.student_model.state_dict())
+
+        if use_scheduler:
+            optim_lr = self.optimizer_student.param_groups[0]["lr"]
+            scheduler_student = torch.optim.lr_scheduler.OneCycleLR(
+                self.optimizer_student, max_lr=optim_lr, epochs=epochs, steps_per_epoch=len(self.train_loader), pct_start=0.1)
 
         save_dir = os.path.dirname(save_model_path)
         if not os.path.exists(save_dir):
@@ -146,6 +153,9 @@ class VirtualTeacher:
                 loss.backward()
                 self.optimizer_student.step()
 
+                if use_scheduler:
+                    scheduler_student.step()
+
                 epoch_loss += loss
 
             epoch_acc = correct / length_of_dataset
@@ -166,6 +176,8 @@ class VirtualTeacher:
                 self.writer.add_scalar("Loss/Divergence student", s.mean(student_divergence), ep)
                 self.writer.add_scalar("Loss/Entropy student", s.mean(student_entropy), ep)
                 self.writer.add_scalar("Loss/Calibration student", s.mean(student_calibration), ep)
+                if use_scheduler:
+                    self.writer.add_scalar("Optimizer/lr student", scheduler_student.get_last_lr()[0], ep)
 
             loss_arr.append(epoch_loss)
             print(

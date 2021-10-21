@@ -88,11 +88,7 @@ def _create_optim(params, lr, adam=False):
         return torch.optim.SGD(params, lr, momentum=0.9, weight_decay=0.0001)
 
 
-def _create_scheduler(optim, lr, epochs, epoch_len):
-    return torch.optim.lr_scheduler.OneCycleLR(optim, max_lr=lr, epochs=epochs, steps_per_epoch=epoch_len, pct_start=0.1)
-
-
-def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn=CustomKLDivLoss(), lr=0.01, distil_weight=0.5, num_students=2, use_adam=True, use_scheduler=False):
+def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn=CustomKLDivLoss(), lr=0.01, distil_weight=0.5, num_students=2, use_adam=True):
     """
     Create distillers for benchmarking.
 
@@ -106,6 +102,9 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
     :param use_adam (bool): True to use Adam optim
     """
     resnet_params = ([4, 4, 4, 4, 4], 1, 10)
+    # Optimal temperature found with LBFGS for FMNIST
+    temperature = 1.243
+
     if algo == "dml" or algo == "dml_e":
         # Define models
         student_cohort = [ResNet18(*resnet_params)
@@ -117,7 +116,7 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
             student_cohort[i].parameters(), lr, adam=use_adam) for i in range(num_students)]
         # Define DML with logging to Tensorboard
         distiller = DML(student_cohort, train_loader, test_loader, student_optimizers, loss_fn=loss_fn, distil_weight=distil_weight,
-                        log=True, logdir=save_path, device=device, use_scheduler=True, use_ensemble=True if algo == "dml_e" else False)
+                        log=True, logdir=save_path, device=device, use_ensemble=True if algo == "dml_e" else False)
     elif algo == "tfkd":
         student = ResNet18(*resnet_params)
         student_optimizer = _create_optim(
@@ -125,7 +124,7 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
         # Define TfKD with logging to Tensorboard
         # Note that we need to use Pytorch's KLD here, due to the implementation of TfKD in KD-Lib
         distiller = VirtualTeacher(student, train_loader, test_loader, student_optimizer, loss_fn=torch.nn.KLDivLoss(
-            reduction='batchmean'), distil_weight=distil_weight, log=True, logdir=save_path, device=device)
+            reduction='batchmean'), temp=temperature, distil_weight=distil_weight, log=True, logdir=save_path, device=device)
     else:
         teacher = ResNet50(*resnet_params)
         student = ResNet18(*resnet_params)
@@ -136,5 +135,6 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
             student.parameters(), lr, adam=use_adam)
         # Define KD with logging to Tensorboard
         distiller = VanillaKD(teacher, student, train_loader, test_loader, teacher_optimizer, student_optimizer,
-                              loss_fn=loss_fn, distil_weight=distil_weight, log=True, logdir=save_path, device=device)
+                              loss_fn=loss_fn, temp=temperature, distil_weight=distil_weight, log=True, logdir=save_path, device=device)
+    
     return distiller

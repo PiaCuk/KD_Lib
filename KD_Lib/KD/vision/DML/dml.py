@@ -24,7 +24,7 @@ class DML:
     :param device (str): Device used for training; 'cpu' for cpu and 'cuda' for gpu
     :param log (bool): True if logging required
     :param logdir (str): Directory for storing logs
-    :param use_scheduler (bool): True to decrease learning rate during training
+    :param use_ensemble (bool):
     """
 
     def __init__(
@@ -38,8 +38,7 @@ class DML:
         device="cpu",
         log=False,
         logdir="./Experiments",
-        use_scheduler=True,
-        use_ensemble=True
+        use_ensemble=True,
     ):
 
         self.student_cohort = student_cohort
@@ -50,7 +49,6 @@ class DML:
         self.distil_weight = distil_weight
         self.log = log
         self.logdir = logdir
-        self.use_scheduler = use_scheduler
         self.use_ensemble = use_ensemble
 
         if self.use_ensemble:
@@ -91,6 +89,7 @@ class DML:
         plot_losses=True,
         save_model=True,
         save_model_path="./Experiments",
+        use_scheduler=False
     ):
         for student in self.student_cohort:
             student.train()
@@ -107,7 +106,7 @@ class DML:
         self.best_student = self.student_cohort[0]
         self.best_student_id = 0
                 
-        if self.use_scheduler: 
+        if use_scheduler: 
             self.student_schedulers = []
 
             for i in range(num_students):
@@ -184,7 +183,7 @@ class DML:
 
                     student_loss.backward()
                     self.student_optimizers[i].step()
-                    if self.use_scheduler:
+                    if use_scheduler:
                         self.student_schedulers[i].step()
 
                 predictions = []
@@ -226,7 +225,7 @@ class DML:
                     self.writer.add_scalar(
                         "Loss/Calibration student"+str(student_id), cohort_calibration[student_id], ep)
                     
-                    if self.use_scheduler:
+                    if use_scheduler:
                         # print(self.student_schedulers[student_id].get_last_lr())
                         self.writer.add_scalar(
                             "Optimizer/lr student"+str(student_id), self.student_schedulers[student_id].get_last_lr()[0], ep)
