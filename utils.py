@@ -63,7 +63,7 @@ def seed_worker(worker_id):
 def create_dataloader(batch_size, train, generator=None):
     return torch.utils.data.DataLoader(
         datasets.FashionMNIST(
-            "FashionMNIST",
+            "data/FashionMNIST",
             train=train,
             download=True,
             transform=transforms.Compose(
