@@ -2,7 +2,7 @@ import os
 
 import torch
 
-from utils import CustomKLDivLoss, SoftKLDivLoss, set_seed, create_dataloader, create_distiller
+from utils import CustomKLDivLoss, SoftKLDivLoss, set_seed, create_dataloader, create_weighted_dataloader, create_distiller
 from temperature_scaling import ModelWithTemperature
 
 
@@ -19,6 +19,7 @@ def main(
     num_students=2,
     use_pretrained=False,
     use_scheduler=False,
+    use_weighted_dl=False,
     seed=None,
 ):
     """
@@ -35,17 +36,21 @@ def main(
     :param num_students (int): Number of students in cohort. Used for DML
     :use_pretrained (bool): Use pretrained teacher for VanillaKD
     :param use_scheduler (bool): True to decrease learning rate during training
+    :param use_weighted_dl (bool): True to use weighted DataLoader with oversampling
     :param seed:    
     """
-    if seed is not None:
-        # Set seed for all libraries and return torch.Generator
-        g = set_seed(seed)
+    # Set seed for all libraries and return torch.Generator
+    g = set_seed(seed) if seed is not None else None
 
     # Create DataLoaders
-    train_loader = create_dataloader(
-        batch_size, train=True, generator=g if seed is not None else None)
-    test_loader = create_dataloader(
-        batch_size, train=False, generator=g if seed is not None else None)
+    if use_weighted_dl:
+        train_loader = create_weighted_dataloader(
+            batch_size, train=True, generator=g)
+        test_loader = create_weighted_dataloader(
+            batch_size, train=False, generator=g)
+    else:
+        train_loader = create_dataloader(batch_size, train=True, generator=g)
+        test_loader = create_dataloader(batch_size, train=False, generator=g)
 
     # Set device to be trained on
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -57,7 +62,7 @@ def main(
         distiller = create_distiller(
             algo, train_loader, test_loader, device, save_path=run_path,
             loss_fn=loss_fn, lr=lr, distil_weight=distil_weight, temperature=temperature, num_students=num_students)
-        
+
         # epochs, plot_losses, save_model, save_model_path, use_scheduler
         param_list = [epochs, False, True, run_path, use_scheduler]
 

@@ -79,7 +79,7 @@ def create_dataloader(batch_size, train, generator=None):
     )
 
 
-def create_imbalanced_dataloader(batch_size, train, generator=None):
+def create_weighted_dataloader(batch_size, train, generator=None):
     dataset = datasets.FashionMNIST(
         "data/FashionMNIST",
         train=train,

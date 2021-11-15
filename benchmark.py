@@ -3,7 +3,6 @@ import os
 import torch
 
 from utils import CustomKLDivLoss, SoftKLDivLoss, set_seed, create_dataloader, create_distiller
-from temperature_scaling import ModelWithTemperature
 from main import main
 
 
@@ -42,7 +41,7 @@ def benchmark(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss
         run_path = os.path.join(save_path, algo + str(i).zfill(3))
         distiller = create_distiller(
             algo, train_loader, test_loader, device, save_path=run_path, loss_fn=loss_fn, lr=0.005, distil_weight=0.5, num_students=num_students, use_adam=use_adam)
-        
+
         # epochs, plot_losses, save_model, save_model_path, use_scheduler
         param_list = [epochs, False, True, run_path, use_scheduler]
 
@@ -107,5 +106,6 @@ if __name__ == "__main__":
         num_students=3,
         use_pretrained=True,
         use_scheduler=False,
+        use_weighted_dl=True,
         seed=42
     )
