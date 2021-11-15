@@ -109,7 +109,7 @@ def create_imbalanced_dataloader(batch_size, train, generator=None):
     )
 
 
-def _create_optim(params, lr, adam=False):
+def _create_optim(params, lr, adam=True):
     # These are the optimizers used by Zhang et al.
     if adam:
         return torch.optim.Adam(params, lr, betas=(0.9, 0.999))
@@ -118,7 +118,7 @@ def _create_optim(params, lr, adam=False):
         return torch.optim.SGD(params, lr, momentum=0.9, weight_decay=0.0001)
 
 
-def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn=CustomKLDivLoss(), lr=0.01, distil_weight=0.5, num_students=2, use_adam=True):
+def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn=CustomKLDivLoss(), lr=0.01, distil_weight=0.5, temperature=10, num_students=2, use_adam=True):
     """
     Create distillers for benchmarking.
 
@@ -128,12 +128,13 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
     :param device (str): Device used for training
     :param save_path (str): Directory for storing logs and saving models
     :param loss_fn (torch.nn.Module): Loss Function used for distillation. Not used for VanillaKD (BaseClass), as it is implemented internally
+    :param lr (float): Learning rate
+    :param distil_weight (float): Between 0 and 1
+    :param temperature (int): temperature parameter for soft targets
     :param num_students (int): Number of students in cohort. Used for DML
     :param use_adam (bool): True to use Adam optim
     """
     resnet_params = ([4, 4, 4, 4, 4], 1, 10)
-    # Optimal temperature found with LBFGS for FMNIST
-    temperature = 1.243
 
     if algo == "dml" or algo == "dml_e":
         # Define models

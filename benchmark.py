@@ -4,12 +4,13 @@ import torch
 
 from utils import CustomKLDivLoss, SoftKLDivLoss, set_seed, create_dataloader, create_distiller
 from temperature_scaling import ModelWithTemperature
+from main import main
 
 
 # TODO implement dynamic temperature in TfKD
 
 
-def main(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), num_students=2, use_adam=True, seed=None, use_scheduler=False):
+def benchmark(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), num_students=2, use_adam=True, seed=None, use_scheduler=False):
     """
     Main function to call for benchmarking.
 
@@ -53,11 +54,7 @@ def main(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), n
         else:
             distiller.train_teacher(*param_list)
 
-            scaled_model = ModelWithTemperature(distiller.teacher_model)
-            scaled_model.set_temperature(test_loader)
-            distiller.temp = scaled_model.temperature.item()
             print("Train student with temperature " + str(distiller.temp))
-
             distiller.train_student(*param_list)
 
 
@@ -65,6 +62,9 @@ if __name__ == "__main__":
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     """
+    Note that benchmark was previously main
+    Now using universal main function for benchmarking
+
     # First round of experiments
     main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session6",
          loss_fn=SoftKLDivLoss(temp=20), num_students=3)
@@ -80,6 +80,32 @@ if __name__ == "__main__":
         loss_fn=CustomKLDivLoss(), num_students=3, seed=42)
     main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/calibration1", seed=42)
     main("tfkd", 5, 10, 1024, "/data1/9cuk/kd_lib/calibration0", seed=42)
-    """
+    
+    # Super-convergence with OneCycleLR
     main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/super_convergence0",
         loss_fn=CustomKLDivLoss(), num_students=3, seed=42, use_scheduler=True)
+
+    # Get all results for thesis
+    main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/super_convergence1",
+        loss_fn=CustomKLDivLoss(), num_students=3, seed=42, use_scheduler=True)
+    main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/calibration3",
+        loss_fn=CustomKLDivLoss(), num_students=3, seed=42,  use_scheduler=False)
+    main("tfkd", 5, 100, 1024, "/data1/9cuk/kd_lib/super_convergence1",
+        loss_fn=CustomKLDivLoss(), num_students=3, seed=42, use_scheduler=True)
+    """
+    # Use new universal main
+    main(
+        "vanilla",
+        5,
+        10,
+        1024,
+        "/data1/9cuk/kd_lib/test",
+        loss_fn=CustomKLDivLoss(),
+        lr=0.005,
+        distil_weight=0.5,
+        temperature=10,
+        num_students=3,
+        use_pretrained=True,
+        use_scheduler=False,
+        seed=42
+    )
