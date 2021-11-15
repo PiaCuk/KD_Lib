@@ -180,11 +180,6 @@ class VirtualTeacher:
                     self.writer.add_scalar("Optimizer/lr student", scheduler_student.get_last_lr()[0], ep)
 
             loss_arr.append(epoch_loss)
-            print(
-                "Epoch: {}, Loss: {}, Accuracy: {}".format(
-                    ep + 1, epoch_loss, epoch_acc
-                )
-            )
 
         self.student_model.load_state_dict(self.best_student_model_weights)
         if save_model:

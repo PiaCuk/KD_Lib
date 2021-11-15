@@ -129,7 +129,8 @@ class DML:
             cohort_entropy = [0 for s in range(num_students)]
             cohort_calibration = [0 for s in range(num_students)]
 
-            for (data, label) in tqdm(self.train_loader, total=epoch_len, position=1):
+            #for (data, label) in tqdm(self.train_loader, total=epoch_len, position=1):
+            for (data, label) in self.train_loader:
 
                 data = data.to(self.device)
                 label = label.to(self.device)
@@ -226,7 +227,6 @@ class DML:
                         "Loss/Calibration student"+str(student_id), cohort_calibration[student_id], ep)
                     
                     if use_scheduler:
-                        # print(self.student_schedulers[student_id].get_last_lr())
                         self.writer.add_scalar(
                             "Optimizer/lr student"+str(student_id), self.student_schedulers[student_id].get_last_lr()[0], ep)
 
@@ -235,16 +235,6 @@ class DML:
                 self.writer.add_scalar("Accuracy/Train average", epoch_acc, ep)
 
             loss_arr.append(epoch_loss)
-
-            # if self.student_schedulers:
-            #     for i in range(num_students):
-            #         self.student_schedulers[i].step()
-
-            #     if ep % 10 == 0:
-            #         print(
-            #             f"Epoch {ep}, Learning rate {self.student_schedulers[i].get_last_lr()}")
-            #         print(
-            #             f"Epoch: {ep}, Loss: {epoch_loss}, Training accuracy: {epoch_acc}")
 
         self.best_student.load_state_dict(self.best_student_model_weights)
         if save_model:
