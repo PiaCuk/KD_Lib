@@ -79,6 +79,36 @@ def create_dataloader(batch_size, train, generator=None):
     )
 
 
+def create_imbalanced_dataloader(batch_size, train, generator=None):
+    dataset = datasets.FashionMNIST(
+        "data/FashionMNIST",
+        train=train,
+        download=True,
+        transform=transforms.Compose(
+            [transforms.ToTensor(), transforms.Normalize((0.2860,), (0.3530,))]
+        ),
+    )
+    class_weight = 0.2
+    num_classes = 10
+    fill_weight = (1 - class_weight) / num_classes
+    sampler = torch.utils.data.WeightedRandomSampler(
+        [class_weight, fill_weight, fill_weight, fill_weight, fill_weight,
+         fill_weight, fill_weight, fill_weight, fill_weight, fill_weight],
+        len(dataset),
+        replacement=True,
+        generator=generator,
+    )
+    return torch.utils.data.DataLoader(
+        dataset,
+        batch_size=batch_size,
+        sampler=sampler,
+        pin_memory=True,
+        num_workers=16,
+        worker_init_fn=seed_worker if generator is not None else None,
+        generator=generator,
+    )
+
+
 def _create_optim(params, lr, adam=False):
     # These are the optimizers used by Zhang et al.
     if adam:
@@ -136,5 +166,5 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
         # Define KD with logging to Tensorboard
         distiller = VanillaKD(teacher, student, train_loader, test_loader, teacher_optimizer, student_optimizer,
                               loss_fn=loss_fn, temp=temperature, distil_weight=distil_weight, log=True, logdir=save_path, device=device)
-    
+
     return distiller
