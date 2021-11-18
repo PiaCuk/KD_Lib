@@ -91,9 +91,10 @@ def create_weighted_dataloader(batch_size, train, generator=None):
     class_weight = 0.2
     num_classes = 10
     fill_weight = (1 - class_weight) / num_classes
+    weights = [class_weight if l == 0 else fill_weight for (_, l) in dataset]
+    print(len(weights))
     sampler = torch.utils.data.WeightedRandomSampler(
-        [class_weight, fill_weight, fill_weight, fill_weight, fill_weight,
-         fill_weight, fill_weight, fill_weight, fill_weight, fill_weight],
+        weights,
         len(dataset),
         replacement=True,
         generator=generator,
