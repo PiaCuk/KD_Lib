@@ -12,6 +12,7 @@ from main import main
 def benchmark(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss(), num_students=2, use_adam=True, seed=None, use_scheduler=False):
     """
     Main function to call for benchmarking.
+    !!use main.py!!
 
     :param algo (str): Name of the training algorithm to use. Either "dml", "dml_e", else VanillaKD
     :param runs (int): Number of runs for each algorithm
@@ -57,18 +58,15 @@ def benchmark(algo, runs, epochs, batch_size, save_path, loss_fn=CustomKLDivLoss
             distiller.train_student(*param_list)
 
 
-if __name__ == "__main__":
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    """
-    Note that benchmark was previously main
-    Now using universal main function for benchmarking
+"""
+Note that benchmark was previously main
+Now using universal main function for benchmarking
 
     # First round of experiments
     main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/session6",
-         loss_fn=SoftKLDivLoss(temp=20), num_students=3)
+            loss_fn=SoftKLDivLoss(temp=20), num_students=3)
     main("dml_e", 5, 100, 1024, "/data1/9cuk/kd_lib/session6",
-         loss_fn=SoftKLDivLoss(temp=20), num_students=3)
+            loss_fn=SoftKLDivLoss(temp=20), num_students=3)
     main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/session3_3")
     main("tfkd", 5, 100, 1024, "/data1/9cuk/kd_lib/session7")
 
@@ -79,7 +77,7 @@ if __name__ == "__main__":
         loss_fn=CustomKLDivLoss(), num_students=3, seed=42)
     main("vanilla", 5, 100, 1024, "/data1/9cuk/kd_lib/calibration1", seed=42)
     main("tfkd", 5, 10, 1024, "/data1/9cuk/kd_lib/calibration0", seed=42)
-    
+
     # Super-convergence with OneCycleLR
     main("dml", 5, 100, 1024, "/data1/9cuk/kd_lib/super_convergence0",
         loss_fn=CustomKLDivLoss(), num_students=3, seed=42, use_scheduler=True)
@@ -91,21 +89,25 @@ if __name__ == "__main__":
         loss_fn=CustomKLDivLoss(), num_students=3, seed=42,  use_scheduler=False)
     main("tfkd", 5, 100, 1024, "/data1/9cuk/kd_lib/super_convergence1",
         loss_fn=CustomKLDivLoss(), num_students=3, seed=42, use_scheduler=True)
-    """
+"""
+if __name__ == "__main__":
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
     # Use new universal main
     main(
-        "vanilla",
+        "dml_e",
         5,
-        10,
+        100,
         1024,
-        "/data1/9cuk/kd_lib/test",
-        loss_fn=CustomKLDivLoss(),
+        "/data1/9cuk/kd_lib/calibration4",
+        loss_fn=CustomKLDivLoss(softmax_target=True),
         lr=0.005,
         distil_weight=0.5,
         temperature=10,
         num_students=3,
-        use_pretrained=True,
-        use_scheduler=False,
-        use_weighted_dl=True,
+        use_pretrained=False,
+        use_scheduler=True,
+        use_weighted_dl=False,
         seed=42
     )

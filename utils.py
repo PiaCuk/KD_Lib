@@ -11,13 +11,16 @@ from KD_Lib.models import Shallow, ResNet18, ResNet50
 
 
 class CustomKLDivLoss(torch.nn.Module):
-    def __init__(self, reduction='batchmean', log_target=False) -> None:
+    def __init__(self, reduction='batchmean', log_target=False, softmax_target=False) -> None:
         super(CustomKLDivLoss, self).__init__()
         self.reduction = reduction
         self.log_target = log_target
+        self.softmax_target = softmax_target
 
     def forward(self, input: Tensor, target: Tensor) -> Tensor:
-        return F.kl_div(torch.log_softmax(input, dim=-1), torch.softmax(target, dim=-1), reduction=self.reduction, log_target=self.log_target)
+        if not self.softmax_target:
+            target = torch.softmax(target, dim=-1)
+        return F.kl_div(torch.log_softmax(input, dim=-1), target, reduction=self.reduction, log_target=self.log_target)
 
 
 class SoftKLDivLoss(torch.nn.Module):
@@ -92,7 +95,6 @@ def create_weighted_dataloader(batch_size, train, generator=None):
     num_classes = 10
     fill_weight = (1 - class_weight) / num_classes
     weights = [class_weight if l == 0 else fill_weight for (_, l) in dataset]
-    print(len(weights))
     sampler = torch.utils.data.WeightedRandomSampler(
         weights,
         len(dataset),

@@ -76,12 +76,16 @@ class DML:
 
     def ensemble_target(self, logits_list, j):
         # Calculate ensemble target given a list of logits, omitting the j'th element
-        num_logits = len(logits_list)
-        ensemble_target = torch.zeros(logits_list[j].shape).to(self.device)
-        for i, logits in enumerate(logits_list):
-            if i != j:
-                ensemble_target += (1 / (num_logits - 1)) * logits
-        return ensemble_target
+        # num_logits = len(logits_list)
+        # ensemble_target = torch.zeros(logits_list[j].shape).to(self.device)
+        # for i, logits in enumerate(logits_list):
+        #    if i != j:
+        #        ensemble_target += (1 / (num_logits - 1)) * logits
+        # return ensemble_target
+
+        logits_list = logits_list[:j] + logits_list[j+1:]
+        logits = torch.softmax(torch.stack(logits_list), dim=-1)
+        return logits.mean(dim=0)
 
     def train_students(
         self,
@@ -139,10 +143,7 @@ class DML:
                     optim.zero_grad()
 
                 # Forward passes to compute logits
-                student_outputs = []
-                for n in self.student_cohort:
-                    logits = n(data)
-                    student_outputs.append(logits)
+                student_outputs = [n(data) for n in self.student_cohort]
 
                 avg_student_loss = 0
 
