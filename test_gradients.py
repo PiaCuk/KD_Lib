@@ -17,12 +17,19 @@ class Network(nn.Module):
 def ensemble_targets(logits_list, j):
     # Calculate ensemble target given a list of logits, omitting the j'th element
     num_logits = len(logits_list)
-    ensemble_targets = th.zeros(logits_list[j].shape)
+    target = th.zeros(logits_list[j].shape)
     for i, logits in enumerate(logits_list):
         if i != j:
-            ensemble_targets += (1 / (num_logits - 1)) * \
+            target += (1 / (num_logits - 1)) * \
                 F.softmax(logits, dim=-1)
-    return ensemble_targets
+    return target
+
+def ensemble_targets2(logits_list, j):
+    logits_list = logits_list[:j] + logits_list[j+1:]
+    logits = th.softmax(th.stack(logits_list), dim=-1)
+    target = logits.mean(dim=0)
+    # print("Ensemble target: {}".format(target))
+    return target
 
 # for repeatability...
 th.manual_seed(0)
@@ -48,10 +55,7 @@ nets_copy = [deepcopy(net) for net in nets]
 # Deep mutual learning - as presented in Zhang et al. (2018)
 print('Now running DML')
 # Forward passes to compute logits
-net_logits = []
-for n in nets:
-    logits = n(X)
-    net_logits.append(logits)
+net_logits = [n(X) for n in nets]
 
 for i, n1 in enumerate(nets):
     ce_loss = F.cross_entropy(net_logits[i], Y)
@@ -76,6 +80,7 @@ for i, n1 in enumerate(nets):
     loss = ce_loss + kl_loss
     loss.backward()
     net_optimizers[i].step()
+    print("CE Loss {}, KL Loss {}".format(ce_loss, kl_loss))
     for name, p in n1.named_parameters():
         print("Network {}, parameter: {}, gradient: {}".format(i, name, p.grad))
 
@@ -85,29 +90,52 @@ for i, n1 in enumerate(nets):
 
 # Deep mutual learning with ensemble teacher (DML_e)
 print('Now running DML_e')
-nets = nets_copy
+nets = [deepcopy(net) for net in nets_copy]
 
-net_logits = []
-for n in nets:
-    logits = n(X)
-    net_logits.append(logits)
+net_logits = [n(X) for n in nets]
 
 for i, n1 in enumerate(nets):
-    loss = F.cross_entropy(net_logits[i], Y)
+    ce_loss = F.cross_entropy(net_logits[i], Y)
     # Calculate ensemble target
     tgt = ensemble_targets(net_logits, i)
     # use plain probs for second arg of kl_div, so log_target is False
     # detach tgt to not backprop through networks other than i
-    loss += F.kl_div(th.log_softmax(net_logits[i], dim=-1), tgt.detach(),
+    kl_loss = F.kl_div(th.log_softmax(net_logits[i], dim=-1), tgt.detach(),
                      reduction='batchmean', log_target=False)
 
     net_optimizers[i].zero_grad()
+    loss = ce_loss + kl_loss
     loss.backward()
     net_optimizers[i].step()
+    print("CE Loss {}, KL Loss {}".format(ce_loss, kl_loss))
     for name, p in n1.named_parameters():
         print("Network {}, parameter: {}, gradient: {}".format(i, name, p.grad))
 
     # update prediction of network i for future iterations
     net_logits[i] = n1(X)
 
-print('The gradients in the two networks are equal for both DML and DML_e!')
+# Deep mutual learning with ensemble teacher (DML_e)
+print('Now running DML_e - second variant')
+nets = [deepcopy(net) for net in nets_copy]
+
+net_logits = [n(X) for n in nets]
+
+for i, n1 in enumerate(nets):
+    ce_loss = F.cross_entropy(net_logits[i], Y)
+    # Calculate ensemble target
+    tgt = ensemble_targets2(net_logits, i)
+    # use plain probs for second arg of kl_div, so log_target is False
+    # detach tgt to not backprop through networks other than i
+    kl_loss = F.kl_div(th.log_softmax(net_logits[i], dim=-1), tgt.detach(),
+                     reduction='batchmean', log_target=False)
+
+    net_optimizers[i].zero_grad()
+    loss = ce_loss + kl_loss
+    loss.backward()
+    net_optimizers[i].step()
+    print("CE Loss {}, KL Loss {}".format(ce_loss, kl_loss))
+    for name, p in n1.named_parameters():
+        print("Network {}, parameter: {}, gradient: {}".format(i, name, p.grad))
+
+    # update prediction of network i for future iterations
+    net_logits[i] = n1(X)
