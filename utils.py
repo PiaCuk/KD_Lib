@@ -11,14 +11,14 @@ from KD_Lib.models import Shallow, ResNet18, ResNet50
 
 
 class CustomKLDivLoss(torch.nn.Module):
-    def __init__(self, reduction='batchmean', log_target=False, softmax_target=False) -> None:
+    def __init__(self, reduction='batchmean', log_target=False, apply_softmax=True) -> None:
         super(CustomKLDivLoss, self).__init__()
         self.reduction = reduction
         self.log_target = log_target
-        self.softmax_target = softmax_target
+        self.apply_softmax = apply_softmax
 
     def forward(self, input: Tensor, target: Tensor) -> Tensor:
-        if not self.softmax_target:
+        if self.apply_softmax:
             target = torch.softmax(target, dim=-1)
         return F.kl_div(torch.log_softmax(input, dim=-1), target, reduction=self.reduction, log_target=self.log_target)
 
