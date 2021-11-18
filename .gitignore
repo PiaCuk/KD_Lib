@@ -104,6 +104,9 @@ ENV/
 # IDE Files
 .vscode/
 
+# Weights and Biases logging
+wandb/
+
 # unnecessary data directories created for datasets
 data
 Experiments
