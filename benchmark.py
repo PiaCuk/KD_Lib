@@ -92,22 +92,22 @@ Now using universal main function for benchmarking
 """
 if __name__ == "__main__":
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
     # Use new universal main
     main(
-        "dml_e",
+        "tfkd",
         5,
         100,
         1024,
-        "/data1/9cuk/kd_lib/calibration4",
-        loss_fn=CustomKLDivLoss(softmax_target=True),
+        "/data1/9cuk/kd_lib/oversample1",
+        loss_fn=CustomKLDivLoss(apply_softmax=True), # loss_fn not used for Tf-KD
         lr=0.005,
         distil_weight=0.5,
-        temperature=10,
+        temperature=10.0,
         num_students=3,
         use_pretrained=False,
         use_scheduler=True,
-        use_weighted_dl=False,
+        use_weighted_dl=True,
         seed=42
     )
