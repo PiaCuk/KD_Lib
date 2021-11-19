@@ -15,7 +15,7 @@ def main(
     loss_fn=CustomKLDivLoss(),
     lr=0.005,
     distil_weight=0.5,
-    temperature=10,
+    temperature=10.0,
     num_students=2,
     use_pretrained=False,
     use_scheduler=False,
@@ -23,7 +23,7 @@ def main(
     seed=None,
 ):
     """
-    Universal main function for my 
+    Universal main function for my Knowledge Distillation experiments
 
     :param algo (str): Name of the training algorithm to use. Either "dml", "dml_e", else VanillaKD
     :param runs (int): Number of runs for each algorithm
@@ -33,6 +33,7 @@ def main(
     :param loss_fn (torch.nn.Module): Loss Function used for distillation. Not used for VanillaKD (BaseClass), as it is implemented internally
     :param lr (float): Learning rate
     :param distil_weight (float): Between 0 and 1
+    :param temperature (float): temperature parameter for soft targets
     :param num_students (int): Number of students in cohort. Used for DML
     :use_pretrained (bool): Use pretrained teacher for VanillaKD
     :param use_scheduler (bool): True to decrease learning rate during training

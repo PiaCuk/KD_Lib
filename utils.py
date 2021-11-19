@@ -63,7 +63,7 @@ def seed_worker(worker_id):
     random.seed(worker_seed)
 
 
-def create_dataloader(batch_size, train, generator=None):
+def create_dataloader(batch_size, train, generator=None, workers=16):
     return torch.utils.data.DataLoader(
         datasets.FashionMNIST(
             "data/FashionMNIST",
@@ -76,13 +76,13 @@ def create_dataloader(batch_size, train, generator=None):
         batch_size=batch_size,
         shuffle=True,
         pin_memory=True,
-        num_workers=16,
+        num_workers=workers,
         worker_init_fn=seed_worker if generator is not None else None,
         generator=generator,
     )
 
 
-def create_weighted_dataloader(batch_size, train, generator=None):
+def create_weighted_dataloader(batch_size, train, generator=None, workers=16):
     dataset = datasets.FashionMNIST(
         "data/FashionMNIST",
         train=train,
@@ -106,7 +106,7 @@ def create_weighted_dataloader(batch_size, train, generator=None):
         batch_size=batch_size,
         sampler=sampler,
         pin_memory=True,
-        num_workers=16,
+        num_workers=workers,
         worker_init_fn=seed_worker if generator is not None else None,
         generator=generator,
     )
@@ -121,7 +121,7 @@ def _create_optim(params, lr, adam=True):
         return torch.optim.SGD(params, lr, momentum=0.9, weight_decay=0.0001)
 
 
-def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn=CustomKLDivLoss(), lr=0.01, distil_weight=0.5, temperature=10, num_students=2, use_adam=True):
+def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn=CustomKLDivLoss(), lr=0.01, distil_weight=0.5, temperature=10.0, num_students=2, use_adam=True):
     """
     Create distillers for benchmarking.
 
@@ -133,7 +133,7 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
     :param loss_fn (torch.nn.Module): Loss Function used for distillation. Not used for VanillaKD (BaseClass), as it is implemented internally
     :param lr (float): Learning rate
     :param distil_weight (float): Between 0 and 1
-    :param temperature (int): temperature parameter for soft targets
+    :param temperature (float): temperature parameter for soft targets
     :param num_students (int): Number of students in cohort. Used for DML
     :param use_adam (bool): True to use Adam optim
     """
