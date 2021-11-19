@@ -5,12 +5,12 @@ import torch.nn.functional as F
 from torch import Tensor
 from torchvision import datasets, transforms
 
-from KD_Lib.KD import DML, DMLEnsemble
-from KD_Lib.models import Shallow, ResNet18
+from ..KD_Lib.KD import DML, DMLEnsemble
+from ..KD_Lib.models import Shallow, ResNet18
 
 
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 save_path = "/data1/9cuk/kd_lib/dml1"
 epochs = 100
@@ -62,7 +62,8 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 resnet_params = ([4, 4, 4, 4, 4], 1, 10)
 student_cohort = [ResNet18(*resnet_params) for i in range(num_students)]
 
-student_optimizers = [torch.optim.Adam(student_cohort[i].parameters(), lr) for i in range(num_students)]
+student_optimizers = [torch.optim.Adam(
+    student_cohort[i].parameters(), lr) for i in range(num_students)]
 
 # Define DML
 dml = DML(student_cohort, train_loader, test_loader,

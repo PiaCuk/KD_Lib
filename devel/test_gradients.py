@@ -24,12 +24,14 @@ def ensemble_targets(logits_list, j):
                 F.softmax(logits, dim=-1)
     return target
 
+
 def ensemble_targets2(logits_list, j):
     logits_list = logits_list[:j] + logits_list[j+1:]
     logits = th.softmax(th.stack(logits_list), dim=-1)
     target = logits.mean(dim=0)
     # print("Ensemble target: {}".format(target))
     return target
+
 
 # for repeatability...
 th.manual_seed(0)
@@ -101,7 +103,7 @@ for i, n1 in enumerate(nets):
     # use plain probs for second arg of kl_div, so log_target is False
     # detach tgt to not backprop through networks other than i
     kl_loss = F.kl_div(th.log_softmax(net_logits[i], dim=-1), tgt.detach(),
-                     reduction='batchmean', log_target=False)
+                       reduction='batchmean', log_target=False)
 
     net_optimizers[i].zero_grad()
     loss = ce_loss + kl_loss
@@ -127,7 +129,7 @@ for i, n1 in enumerate(nets):
     # use plain probs for second arg of kl_div, so log_target is False
     # detach tgt to not backprop through networks other than i
     kl_loss = F.kl_div(th.log_softmax(net_logits[i], dim=-1), tgt.detach(),
-                     reduction='batchmean', log_target=False)
+                       reduction='batchmean', log_target=False)
 
     net_optimizers[i].zero_grad()
     loss = ce_loss + kl_loss
