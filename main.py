@@ -77,7 +77,7 @@ def main(
                 # Use pre-trained teacher to save computation
                 if use_weighted_dl:
                     state_dict = torch.load(
-                        "/data1/9cuk/kd_lib/oversample1/vanilla001/teacher.pt")
+                        "/data1/9cuk/kd_lib/saved_models/vanilla001/teacher.pt")
                 else:
                     state_dict = torch.load(
                         "/data1/9cuk/kd_lib/saved_models/vanilla000/teacher.pt")
