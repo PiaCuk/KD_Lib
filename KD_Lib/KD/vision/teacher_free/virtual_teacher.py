@@ -38,7 +38,6 @@ class VirtualTeacher:
         train_loader,
         val_loader,
         optimizer_student,
-        loss_fn=nn.KLDivLoss(),
         correct_prob=0.9,
         temp=10.0,
         distil_weight=0.5,
@@ -51,7 +50,6 @@ class VirtualTeacher:
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.optimizer_student = optimizer_student
-        self.loss_fn = loss_fn
         self.correct_prob = correct_prob
         self.temp = temp
         self.distil_weight = distil_weight
@@ -75,7 +73,6 @@ class VirtualTeacher:
             self.device = torch.device("cpu")
         
         self.student_model = student_model.to(self.device)
-        self.loss_fn = loss_fn.to(self.device)
         self.ece_loss = ECELoss(n_bins=15).to(self.device)
 
     def train_student(
@@ -188,6 +185,12 @@ class VirtualTeacher:
             plt.plot(loss_arr)
 
     def calculate_kd_loss(self, y_pred_student, y_true):
+        """
+        Function used for calculating the KD loss during distillation
+
+        :param y_pred_student (torch.FloatTensor): Prediction made by the student model
+        :param y_true (torch.FloatTensor): Original label
+        """
 
         num_classes = y_pred_student.shape[1]
 
@@ -196,12 +199,14 @@ class VirtualTeacher:
         for i in range(y_pred_student.shape[0]):
             soft_label[i, y_true[i]] = self.correct_prob
 
-        supervised = (1 - self.distil_weight) * F.cross_entropy(y_pred_student, y_true)
-        distillation = (self.distil_weight) * self.loss_fn(
-            F.log_softmax(y_pred_student, dim=1),
-            F.softmax(soft_label / self.temp, dim=1),
-        )
-        loss = supervised + distillation
+        soft_teacher_out = F.softmax(soft_label / self.temp, dim=1)
+        soft_student_out = F.log_softmax(y_pred_student / self.temp, dim=1)
+
+        supervised = F.cross_entropy(y_pred_student, y_true)
+        distillation = (self.temp ** 2) * F.kl_div(input=soft_student_out,
+                                                   target=soft_teacher_out,
+                                                   reduction='batchmean', log_target=False)
+        loss = (1 - self.distil_weight) * supervised + self.distil_weight * distillation
         return loss, supervised, distillation
 
     def evaluate(self):

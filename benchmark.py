@@ -101,7 +101,7 @@ if __name__ == "__main__":
         100,
         1024,
         "/data1/9cuk/kd_lib/oversample1",
-        loss_fn=CustomKLDivLoss(apply_softmax=True), # loss_fn not used for Tf-KD
+        loss_fn=CustomKLDivLoss(apply_softmax=True), # only used for DML
         lr=0.005,
         distil_weight=0.5,
         temperature=10.0,

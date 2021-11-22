@@ -30,7 +30,7 @@ def main(
     :param epochs (int): Number of epochs to train per run
     :param batch_size (int): Batch size for training
     :param save_path (str): Directory for storing logs and saving models
-    :param loss_fn (torch.nn.Module): Loss Function used for distillation. Not used for VanillaKD (BaseClass), as it is implemented internally
+    :param loss_fn (torch.nn.Module): Loss Function used for distillation. Only used for DML
     :param lr (float): Learning rate
     :param distil_weight (float): Between 0 and 1
     :param temperature (float): temperature parameter for soft targets

@@ -55,7 +55,8 @@ class VanillaKD(BaseClass):
 
     def calculate_kd_loss(self, y_pred_student, y_pred_teacher, y_true):
         """
-        Function used for calculating the KD loss during distillation
+        Function used for calculating the KD loss during distillation.
+        Note that self.loss_fn is ignored, as this implementation is specific to KLD
 
         :param y_pred_student (torch.FloatTensor): Prediction made by the student model
         :param y_pred_teacher (torch.FloatTensor): Prediction made by the teacher model
@@ -63,12 +64,12 @@ class VanillaKD(BaseClass):
         """
 
         soft_teacher_out = F.softmax(y_pred_teacher / self.temp, dim=1)
-        soft_student_out = F.softmax(y_pred_student / self.temp, dim=1)
+        soft_student_out = F.log_softmax(y_pred_student / self.temp, dim=1)
 
         supervised = F.cross_entropy(y_pred_student, y_true)
-        distillation = (self.temp * self.temp) * self.loss_fn(
-            soft_teacher_out, soft_student_out
-        )
+        distillation = (self.temp ** 2) * F.kl_div(input=soft_student_out,
+                                                   target=soft_teacher_out,
+                                                   reduction='batchmean', log_target=False)
         loss = (1 - self.distil_weight) * supervised + self.distil_weight * distillation
 
         return loss, supervised, distillation
