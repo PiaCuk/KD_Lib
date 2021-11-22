@@ -75,15 +75,20 @@ def main(
         else:
             if use_pretrained:
                 # Use pre-trained teacher to save computation
-                state_dict = torch.load(
-                    "/data1/9cuk/kd_lib/saved_models/vanilla000/teacher.pt")
+                if use_weighted_dl:
+                    state_dict = torch.load(
+                        "/data1/9cuk/kd_lib/oversample1/vanilla001/teacher.pt")
+                else:
+                    state_dict = torch.load(
+                        "/data1/9cuk/kd_lib/saved_models/vanilla000/teacher.pt")
+                
                 distiller.teacher_model.load_state_dict(state_dict)
 
                 # Optimal temperature found with LBFGS
                 # scaled_model = ModelWithTemperature(distiller.teacher_model)
                 # scaled_model.set_temperature(test_loader)
                 # distiller.temp = scaled_model.temperature.item()
-                distiller.temp = 1.243
+                # distiller.temp = 1.243
             else:
                 # Train teacher from scratch and save the model
                 distiller.train_teacher(*param_list)
