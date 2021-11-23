@@ -24,7 +24,7 @@ class DML:
     :param device (str): Device used for training; 'cpu' for cpu and 'cuda' for gpu
     :param log (bool): True if logging required
     :param logdir (str): Directory for storing logs
-    :param use_ensemble (bool):
+    :param use_ensemble (bool): If True, use ensemble target. Otherwise, compare students pairwise
     """
 
     def __init__(

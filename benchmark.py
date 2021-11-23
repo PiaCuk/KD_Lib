@@ -2,9 +2,9 @@ import os
 
 import torch
 
-from utils import CustomKLDivLoss, SoftKLDivLoss, set_seed, create_dataloader, create_distiller
 from main import main
-
+from utils import (CustomKLDivLoss, SoftKLDivLoss, create_dataloader,
+                   create_distiller, set_seed)
 
 # TODO implement dynamic temperature in TfKD
 
@@ -96,18 +96,18 @@ if __name__ == "__main__":
 
     # Use new universal main
     main(
-        "tfkd",
+        "dml",
         5,
         100,
         1024,
-        "/data1/9cuk/kd_lib/oversample1",
+        "/data1/9cuk/kd_lib/10students",
         loss_fn=CustomKLDivLoss(apply_softmax=True), # only used for DML
         lr=0.005,
         distil_weight=0.5,
         temperature=10.0,
-        num_students=3,
+        num_students=10,
         use_pretrained=False,
         use_scheduler=True,
-        use_weighted_dl=True,
+        use_weighted_dl=False,
         seed=42
     )

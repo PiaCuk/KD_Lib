@@ -33,13 +33,13 @@ def main(
     :param save_path (str): Directory for storing logs and saving models
     :param loss_fn (torch.nn.Module): Loss Function used for distillation. Only used for DML
     :param lr (float): Learning rate
-    :param distil_weight (float): Between 0 and 1
+    :param distil_weight (float): Weight for distillation loss. Cross-entropy will be weighted with (1 - distil_weight)
     :param temperature (float): temperature parameter for soft targets
     :param num_students (int): Number of students in cohort. Used for DML
-    :use_pretrained (bool): Use pretrained teacher for VanillaKD
+    :param use_pretrained (bool): Use pretrained teacher for VanillaKD
     :param use_scheduler (bool): True to decrease learning rate during training
     :param use_weighted_dl (bool): True to use weighted DataLoader with oversampling
-    :param seed:    
+    :param seed: Random seed
     """
     # Set seed for all libraries and return torch.Generator
     g = set_seed(seed) if seed is not None else None
