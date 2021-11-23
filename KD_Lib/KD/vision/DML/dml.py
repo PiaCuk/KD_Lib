@@ -1,12 +1,12 @@
+import os
+from copy import deepcopy
+
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.tensorboard import SummaryWriter
 from torch.distributions.categorical import Categorical
-
-import matplotlib.pyplot as plt
-from copy import deepcopy
-import os
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from KD_Lib.KD.common.utils import ECELoss

@@ -1,13 +1,13 @@
 import random
-import numpy as np
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import Tensor
 from torchvision import datasets, transforms
 
-from KD_Lib.KD import VanillaKD, DML, VirtualTeacher
-from KD_Lib.models import Shallow, ResNet18, ResNet50
+from KD_Lib.KD import DML, VanillaKD, VirtualTeacher
+from KD_Lib.models import ResNet18, ResNet50, Shallow
 
 
 class CustomKLDivLoss(torch.nn.Module):

@@ -2,8 +2,9 @@ import os
 
 import torch
 
-from utils import CustomKLDivLoss, SoftKLDivLoss, set_seed, create_dataloader, create_weighted_dataloader, create_distiller
 from temperature_scaling import ModelWithTemperature
+from utils import (CustomKLDivLoss, SoftKLDivLoss, create_dataloader,
+                   create_distiller, create_weighted_dataloader, set_seed)
 
 
 def main(
