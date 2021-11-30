@@ -72,14 +72,15 @@ def eval(
 
 
 if __name__ == "__main__":
-    eval(
-        "vanilla",
-        "Experiments/oversample1/vanilla000",
-        1,
-        loss_fn=CustomKLDivLoss(apply_softmax=True),
-        lr=0.005,
-        distil_weight=0.5,
-        temperature=10,
-        use_weighted_dl=False,
-        seed=42,
-    )
+    for i in range(5):
+        eval(
+            "dml",
+            "../CVPC/super_convergence0/dml00{}".format(i),
+            1,
+            loss_fn=CustomKLDivLoss(apply_softmax=True),
+            lr=0.005,
+            distil_weight=0.5,
+            temperature=10,
+            use_weighted_dl=False,
+            seed=42,
+        )
