@@ -79,6 +79,7 @@ def create_dataloader(batch_size, train, generator=None, workers=16):
         num_workers=workers,
         worker_init_fn=seed_worker if generator is not None else None,
         generator=generator,
+        persistent_workers=True,
     )
 
 
@@ -91,7 +92,7 @@ def create_weighted_dataloader(batch_size, train, generator=None, workers=16):
             [transforms.ToTensor(), transforms.Normalize((0.2860,), (0.3530,))]
         ),
     )
-    class_weight = 0.2
+    class_weight = 0.9
     num_classes = 10
     fill_weight = (1 - class_weight) / num_classes
     weights = [class_weight if l == 0 else fill_weight for (_, l) in dataset]
@@ -109,6 +110,7 @@ def create_weighted_dataloader(batch_size, train, generator=None, workers=16):
         num_workers=workers,
         worker_init_fn=seed_worker if generator is not None else None,
         generator=generator,
+        persistent_workers=True,
     )
 
 
