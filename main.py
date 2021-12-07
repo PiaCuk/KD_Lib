@@ -21,6 +21,7 @@ def main(
     use_pretrained=False,
     use_scheduler=False,
     use_weighted_dl=False,
+    schedule_distil_weight=False,
     seed=None,
 ):
     """
@@ -39,6 +40,7 @@ def main(
     :param use_pretrained (bool): Use pretrained teacher for VanillaKD
     :param use_scheduler (bool): True to decrease learning rate during training
     :param use_weighted_dl (bool): True to use weighted DataLoader with oversampling
+    :param schedule_distil_weight (bool): True to increase distil_weight from 0 to distil_weight over warm-up period
     :param seed: Random seed
     """
     # Set seed for all libraries and return torch.Generator
@@ -47,12 +49,12 @@ def main(
     # Create DataLoaders
     if use_weighted_dl:
         train_loader = create_weighted_dataloader(
-            batch_size, train=True, generator=g)
+            batch_size, train=True, generator=g, workers=15)
         test_loader = create_weighted_dataloader(
-            batch_size, train=False, generator=g)
+            batch_size, train=False, generator=g, workers=15)
     else:
-        train_loader = create_dataloader(batch_size, train=True, generator=g)
-        test_loader = create_dataloader(batch_size, train=False, generator=g)
+        train_loader = create_dataloader(batch_size, train=True, generator=g, workers=15)
+        test_loader = create_dataloader(batch_size, train=False, generator=g, workers=15)
 
     # Set device to be trained on
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -70,7 +72,7 @@ def main(
 
         if algo == "dml" or algo == "dml_e":
             # Run DML or DML_e
-            distiller.train_students(*param_list)
+            distiller.train_students(*param_list, schedule_distil_weight)
         elif algo == "tfkd":
             distiller.train_student(*param_list)
         else:

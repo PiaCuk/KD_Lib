@@ -100,14 +100,15 @@ if __name__ == "__main__":
         5,
         100,
         1024,
-        "/data1/9cuk/kd_lib/10students",
+        "/data1/9cuk/kd_lib/hyperparams/slow_start01",
         loss_fn=CustomKLDivLoss(apply_softmax=True), # only used for DML
-        lr=0.005,
+        lr=0.001,
         distil_weight=0.5,
         temperature=10.0,
-        num_students=10,
+        num_students=3,
         use_pretrained=False,
         use_scheduler=True,
         use_weighted_dl=False,
+        schedule_distil_weight=False,
         seed=42
     )

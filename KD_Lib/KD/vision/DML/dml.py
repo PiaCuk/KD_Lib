@@ -93,7 +93,8 @@ class DML:
         plot_losses=True,
         save_model=True,
         save_model_path="./Experiments",
-        use_scheduler=False
+        use_scheduler=False,
+        schedule_distil_weight=False,
     ):
         for student in self.student_cohort:
             student.train()
@@ -109,6 +110,8 @@ class DML:
             self.student_cohort[0].state_dict())
         self.best_student = self.student_cohort[0]
         self.best_student_id = 0
+
+        warm_up_pct = 0.1
                 
         if use_scheduler: 
             self.student_schedulers = []
@@ -121,7 +124,11 @@ class DML:
                 # Get learning rate from optimizer and create schedulers for each student
                 optim_lr = self.student_optimizers[i].param_groups[0]["lr"]
                 self.student_schedulers.append(torch.optim.lr_scheduler.OneCycleLR(
-                    self.student_optimizers[i], max_lr=optim_lr, epochs=epochs, steps_per_epoch=epoch_len, pct_start=0.1))
+                    self.student_optimizers[i], max_lr=optim_lr, epochs=epochs, steps_per_epoch=epoch_len, pct_start=warm_up_pct))
+        
+        if schedule_distil_weight:
+            self.target_distil_weight = self.distil_weight
+            warm_up = int(warm_up_pct * epochs)
 
         print("\nTraining students...")
 
@@ -132,6 +139,12 @@ class DML:
             cohort_divergence = [0 for s in range(num_students)]
             cohort_entropy = [0 for s in range(num_students)]
             cohort_calibration = [0 for s in range(num_students)]
+
+            if schedule_distil_weight:
+                if ep < warm_up:
+                    self.distil_weight = ((ep + 1e-8) / warm_up) * self.target_distil_weight
+                else:
+                    self.distil_weight = self.target_distil_weight
 
             #for (data, label) in tqdm(self.train_loader, total=epoch_len, position=1):
             for (data, label) in self.train_loader:
@@ -234,6 +247,7 @@ class DML:
             if self.log:
                 self.writer.add_scalar("Loss/Train average", epoch_loss, ep)
                 self.writer.add_scalar("Accuracy/Train average", epoch_acc, ep)
+                self.writer.add_scalar("Optimizer/Distillation weight", self.distil_weight, ep)
 
             loss_arr.append(epoch_loss)
 
