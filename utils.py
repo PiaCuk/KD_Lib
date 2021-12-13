@@ -117,7 +117,7 @@ def create_weighted_dataloader(batch_size, train, generator=None, workers=16):
 def _create_optim(params, lr, adam=True):
     # These are the optimizers used by Zhang et al.
     if adam:
-        return torch.optim.Adam(params, lr, betas=(0.9, 0.999))
+        return torch.optim.AdamW(params, lr, betas=(0.9, 0.999))
     else:
         # Zhang et al. use no weight decay and nesterov=True
         return torch.optim.SGD(params, lr, momentum=0.9, weight_decay=0.0001)

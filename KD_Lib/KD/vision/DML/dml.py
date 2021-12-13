@@ -128,7 +128,7 @@ class DML:
         
         if schedule_distil_weight:
             self.target_distil_weight = self.distil_weight
-            warm_up = int(warm_up_pct * epochs)
+            warm_up = int(2 * warm_up_pct * epochs)
 
         print("\nTraining students...")
 

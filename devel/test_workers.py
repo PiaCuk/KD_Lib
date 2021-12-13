@@ -4,7 +4,7 @@ import torch
 from torchvision import datasets, transforms
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 pin_memory = True
 print('pin_memory is', pin_memory)
@@ -13,9 +13,10 @@ train_data = datasets.FashionMNIST(
     "data/FashionMNIST",
     train=True,
     download=False,
-    transform=transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.2860,), (0.3530,))]
-    ),
+    transform=transforms.Compose([
+        # transforms.Grayscale(num_output_channels=3), transforms.RandAugment(),
+        transforms.ToTensor(), transforms.Normalize((0.2860,), (0.3530,))
+        ]),
 )
 
 for num_workers in range(10, 17, 1):
