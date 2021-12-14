@@ -75,7 +75,7 @@ if __name__ == "__main__":
     for i in range(5):
         eval(
             "dml",
-            "../CVPC/super_convergence0/dml00{}".format(i),
+            "Experiments/super_convergence0/dml00{}".format(i),
             1,
             loss_fn=CustomKLDivLoss(apply_softmax=True),
             lr=0.005,
