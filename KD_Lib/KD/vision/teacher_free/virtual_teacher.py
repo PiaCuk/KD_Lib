@@ -81,7 +81,8 @@ class VirtualTeacher:
         plot_losses=True,
         save_model=True,
         save_model_path="./models/student.pt",
-        use_scheduler=False
+        use_scheduler=False,
+        smooth_teacher=True,
     ):
         """
         Function that will be training the student
@@ -91,6 +92,7 @@ class VirtualTeacher:
         :param save_model (bool): True if you want to save the student model
         :param save_model_pth (str): Path where you want to save the student model
         :param use_scheduler (bool): True to use OneCycleLR during training
+        :param smooth_teacher (bool): True to apply temperature smoothing and Softmax to virtual teacher
         """
 
         self.student_model.train()
@@ -127,7 +129,7 @@ class VirtualTeacher:
 
                 student_out = self.student_model(data)
 
-                loss = self.calculate_kd_loss(student_out, label)
+                loss = self.calculate_kd_loss(student_out, label, smooth_teacher=smooth_teacher)
 
                 if isinstance(loss, tuple):
                     loss, ce_loss, divergence = loss
@@ -184,7 +186,7 @@ class VirtualTeacher:
         if plot_losses:
             plt.plot(loss_arr)
 
-    def calculate_kd_loss(self, y_pred_student, y_true):
+    def calculate_kd_loss(self, y_pred_student, y_true, smooth_teacher=True):
         """
         Function used for calculating the KD loss during distillation
 
@@ -194,17 +196,17 @@ class VirtualTeacher:
 
         num_classes = y_pred_student.shape[1]
 
-        soft_label = torch.ones_like(y_pred_student).to(self.device)
-        soft_label = soft_label * (1 - self.correct_prob) / (num_classes - 1)
+        virtual_teacher = torch.ones_like(y_pred_student, device=self.device)
+        virtual_teacher = virtual_teacher * (1 - self.correct_prob) / (num_classes - 1)
         for i in range(y_pred_student.shape[0]):
-            soft_label[i, y_true[i]] = self.correct_prob
+            virtual_teacher[i, y_true[i]] = self.correct_prob
 
-        soft_teacher_out = F.softmax(soft_label / self.temp, dim=1)
+        teacher_out = F.softmax(virtual_teacher / self.temp, dim=1) if smooth_teacher else virtual_teacher
         soft_student_out = F.log_softmax(y_pred_student / self.temp, dim=1)
 
         supervised = F.cross_entropy(y_pred_student, y_true)
         distillation = (self.temp ** 2) * F.kl_div(input=soft_student_out,
-                                                   target=soft_teacher_out,
+                                                   target=teacher_out,
                                                    reduction='batchmean', log_target=False)
         loss = (1 - self.distil_weight) * supervised + self.distil_weight * distillation
         return loss, supervised, distillation

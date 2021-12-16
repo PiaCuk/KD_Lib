@@ -74,7 +74,7 @@ def main(
             # Run DML or DML_e
             distiller.train_students(*param_list, schedule_distil_weight)
         elif algo == "tfkd":
-            distiller.train_student(*param_list)
+            distiller.train_student(*param_list, smooth_teacher=False)
         else:
             if use_pretrained:
                 # Use pre-trained teacher to save computation
