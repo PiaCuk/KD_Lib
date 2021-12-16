@@ -159,7 +159,7 @@ class VirtualTeacher:
 
             epoch_acc = correct / length_of_dataset
 
-            epoch_val_acc = self.evaluate()
+            epoch_val_acc = self.evaluate(verbose=False)
 
             if epoch_val_acc > best_acc:
                 best_acc = epoch_val_acc
@@ -211,7 +211,7 @@ class VirtualTeacher:
         loss = (1 - self.distil_weight) * supervised + self.distil_weight * distillation
         return loss, supervised, distillation
 
-    def evaluate(self):
+    def evaluate(self, verbose=True):
         """
         Evaluate method for printing accuracies of the trained network
 
@@ -235,8 +235,11 @@ class VirtualTeacher:
                 correct += pred.eq(target.view_as(pred)).sum().item()
 
         accuracy = correct / length_of_dataset
-        print("-" * 80)
-        print(f"Accuracy: {accuracy}")
+        
+        if verbose:
+            print("-" * 80)
+            print(f"Accuracy: {accuracy}")
+        
         return accuracy
 
     def get_parameters(self):
