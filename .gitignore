@@ -111,6 +111,7 @@ wandb/
 data
 Experiments
 cvpc18
+cvpc8
 
 # virtual environment
 kd_venv
