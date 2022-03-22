@@ -117,6 +117,7 @@ class BaseClass:
         for ep in tqdm(range(epochs), position=0):
             epoch_loss = 0.0
             epoch_calibration = 0.0
+            epoch_entropy = 0.0
             correct = 0
             for (data, label) in self.train_loader:
                 data = data.to(self.device)
@@ -125,6 +126,10 @@ class BaseClass:
 
                 if isinstance(out, tuple):
                     out = out[0]
+
+                out_dist = Categorical(logits=out)
+                entropy = out_dist.entropy().mean(dim=0)
+                epoch_entropy += (1 / length_of_dataset) * entropy.item()
 
                 epoch_calibration += (1 / length_of_dataset) * self.ece_loss(out, label).item()
 
@@ -155,6 +160,7 @@ class BaseClass:
             if self.log:
                 self.writer.add_scalar("Loss/Train teacher", epoch_loss, ep)
                 self.writer.add_scalar("Loss/Calibration teacher", epoch_calibration, ep)
+                self.writer.add_scalar("Loss/Entropy teacher", epoch_entropy, ep)
                 self.writer.add_scalar("Accuracy/Train teacher", epoch_acc, ep)
                 self.writer.add_scalar("Accuracy/Validation teacher", epoch_val_acc, ep)
                 if use_scheduler:
