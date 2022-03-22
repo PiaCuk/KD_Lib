@@ -20,7 +20,7 @@ def main(
     num_students=2,
     use_pretrained=False,
     use_scheduler=False,
-    use_weighted_dl=False,
+    use_weighted_dl=None,
     schedule_distil_weight=False,
     seed=None,
 ):
@@ -48,11 +48,12 @@ def main(
     workers = 12
 
     # Create DataLoaders
-    if use_weighted_dl:
+    if isinstance(use_weighted_dl, float):
+        print(f"Using weighted dataloader with p(y=0) = {use_weighted_dl}.")
         train_loader = create_weighted_dataloader(
-            batch_size, train=True, generator=g, workers=workers)
+            batch_size, train=True, generator=g, class_weight=use_weighted_dl, workers=workers)
         test_loader = create_weighted_dataloader(
-            batch_size, train=False, generator=g, workers=workers)
+            batch_size, train=False, generator=g, class_weight=use_weighted_dl, workers=workers)
     else:
         train_loader = create_dataloader(batch_size, train=True, generator=g, workers=workers)
         test_loader = create_dataloader(batch_size, train=False, generator=g, workers=workers)
@@ -81,10 +82,10 @@ def main(
                 # Use pre-trained teacher to save computation
                 if use_weighted_dl:
                     state_dict = torch.load(
-                        "/data1/9cuk/kd_lib/saved_models/vanilla001/teacher.pt")
+                        "./cvpc18/saved_models/vanilla001/teacher.pt")
                 else:
                     state_dict = torch.load(
-                        "/data1/9cuk/kd_lib/saved_models/vanilla000/teacher.pt")
+                        "./cvpc18/saved_models/vanilla000/teacher.pt")
                 
                 distiller.teacher_model.load_state_dict(state_dict)
 

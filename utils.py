@@ -83,7 +83,7 @@ def create_dataloader(batch_size, train, generator=None, workers=16):
     )
 
 
-def create_weighted_dataloader(batch_size, train, generator=None, workers=16):
+def create_weighted_dataloader(batch_size, train, generator=None, class_weight=0.9, workers=16):
     dataset = datasets.FashionMNIST(
         "data/FashionMNIST",
         train=train,
@@ -92,7 +92,6 @@ def create_weighted_dataloader(batch_size, train, generator=None, workers=16):
             [transforms.ToTensor(), transforms.Normalize((0.2860,), (0.3530,))]
         ),
     )
-    class_weight = 0.9
     num_classes = 10
     fill_weight = (1 - class_weight) / num_classes
     weights = [class_weight if l == 0 else fill_weight for (_, l) in dataset]
@@ -161,7 +160,7 @@ def create_distiller(algo, train_loader, test_loader, device, save_path, loss_fn
         distiller = VirtualTeacher(student, train_loader, test_loader, student_optimizer,
             temp=temperature, distil_weight=distil_weight, log=True, logdir=save_path, device=device)
     else:
-        teacher = ResNet50(*resnet_params)
+        teacher = ResNet18(*resnet_params)
         student = ResNet18(*resnet_params)
 
         teacher_optimizer = _create_optim(
