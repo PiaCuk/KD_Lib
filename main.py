@@ -45,16 +45,17 @@ def main(
     """
     # Set seed for all libraries and return torch.Generator
     g = set_seed(seed) if seed is not None else None
+    workers = 12
 
     # Create DataLoaders
     if use_weighted_dl:
         train_loader = create_weighted_dataloader(
-            batch_size, train=True, generator=g, workers=15)
+            batch_size, train=True, generator=g, workers=workers)
         test_loader = create_weighted_dataloader(
-            batch_size, train=False, generator=g, workers=15)
+            batch_size, train=False, generator=g, workers=workers)
     else:
-        train_loader = create_dataloader(batch_size, train=True, generator=g, workers=15)
-        test_loader = create_dataloader(batch_size, train=False, generator=g, workers=15)
+        train_loader = create_dataloader(batch_size, train=True, generator=g, workers=workers)
+        test_loader = create_dataloader(batch_size, train=False, generator=g, workers=workers)
 
     # Set device to be trained on
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
